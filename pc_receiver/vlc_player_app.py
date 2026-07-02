@@ -115,6 +115,8 @@ class VlcPlayerController:
                 front_pitch_degrees=self.config.front_pitch_degrees,
                 min_yaw_degrees=0.0,
                 max_yaw_degrees=180.0,
+                min_pitch_degrees=-abs(self.config.max_pitch_degrees),
+                max_pitch_degrees=abs(self.config.max_pitch_degrees),
             ),
         )
         self.backend.update_viewpoint(viewpoint)

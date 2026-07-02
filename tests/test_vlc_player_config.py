@@ -18,8 +18,8 @@ def test_load_config_missing_file_returns_defaults(tmp_path) -> None:
     assert config.ble_address == DEFAULT_BLE_ADDRESS
     assert config.last_media == ""
     assert config.field_of_view == 80.0
-    assert config.gain_yaw == 0.75
-    assert config.gain_pitch == 0.75
+    assert config.gain_yaw == 5.0
+    assert config.gain_pitch == 5.0
     assert config.deadzone_degrees == 1.0
     assert config.max_yaw_degrees == 90.0
     assert config.max_pitch_degrees == 45.0

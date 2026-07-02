@@ -56,6 +56,26 @@ def test_map_ypr_to_viewpoint_clamps_yaw_to_configured_view_bounds() -> None:
     assert far_right.yaw == 180.0
 
 
+def test_map_ypr_to_viewpoint_applies_gain_before_configured_bounds() -> None:
+    settings = ViewpointSettings(
+        gain_yaw=2.0,
+        gain_pitch=2.0,
+        front_yaw_degrees=90.0,
+        min_yaw_degrees=0.0,
+        max_yaw_degrees=180.0,
+        min_pitch_degrees=-25.0,
+        max_pitch_degrees=25.0,
+    )
+
+    within_bounds = map_ypr_to_viewpoint((20.0, -10.0, 0.0), settings)
+    beyond_bounds = map_ypr_to_viewpoint((60.0, -30.0, 0.0), settings)
+
+    assert within_bounds.yaw == 50.0
+    assert within_bounds.pitch == 20.0
+    assert beyond_bounds.yaw == 0.0
+    assert beyond_bounds.pitch == 25.0
+
+
 def test_map_ypr_to_viewpoint_clamps_pitch_and_fov() -> None:
     settings = ViewpointSettings(gain_pitch=2.0, field_of_view=200.0)
 

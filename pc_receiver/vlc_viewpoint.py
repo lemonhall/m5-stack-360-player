@@ -23,6 +23,8 @@ class ViewpointSettings:
     front_pitch_degrees: float = 0.0
     min_yaw_degrees: float = -180.0
     max_yaw_degrees: float = 180.0
+    min_pitch_degrees: float = -90.0
+    max_pitch_degrees: float = 90.0
 
 
 def map_ypr_to_viewpoint(ypr: Vector3, settings: ViewpointSettings) -> VlcViewpoint:
@@ -33,7 +35,11 @@ def map_ypr_to_viewpoint(ypr: Vector3, settings: ViewpointSettings) -> VlcViewpo
             settings.min_yaw_degrees,
             settings.max_yaw_degrees,
         ),
-        pitch=_clamp(settings.front_pitch_degrees - pitch * settings.gain_pitch, -90.0, 90.0),
+        pitch=_clamp(
+            settings.front_pitch_degrees - pitch * settings.gain_pitch,
+            settings.min_pitch_degrees,
+            settings.max_pitch_degrees,
+        ),
         roll=_clamp(roll, -180.0, 180.0),
         field_of_view=_clamp(settings.field_of_view, 20.0, 150.0),
     )
