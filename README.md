@@ -1,69 +1,133 @@
-# M5StickC Plus2 360 Sensor Link
+# M5StickC Plus2 头控 360 播放器
 
-v1 turns an M5StickC Plus2 into a head-pose telemetry device for later PotPlayer 360 VR view control.
+本项目把 M5StickC Plus2 当作固定在眼镜上的头部姿态传感器，通过 BLE 把姿态数据发到 Windows PC，再由 PC 端 GUI 播放器调用 libVLC 的 360 视角接口控制画面。
 
-## Firmware
+当前主线已经从最初的 PotPlayer 方向切到内嵌 VLC/libVLC：程序不模拟鼠标，不控制 PotPlayer，也不向 Windows 发送全局输入事件。
 
-Build:
+## 固件
+
+构建固件：
 
 ```powershell
 pio run
 ```
 
-Upload to the connected M5StickC Plus2:
+烧录到已连接的 M5StickC Plus2：
 
 ```powershell
 pio run -t upload --upload-port COM5
 ```
 
-The firmware advertises BLE device name `M5HeadTracker` and sends JSON telemetry at about 30 Hz.
+固件会广播 BLE 设备名 `M5HeadTracker`，并以约 30 Hz 发送 JSON 遥测数据。
 
-Telemetry characteristic UUID:
+遥测特征 UUID：
 
 ```text
 7d2f4b8a-6d0e-4f88-9e1f-0c8d2f5f5a02
 ```
 
-## PC Receiver
+## PC 端命令
 
-Run tests:
+运行测试：
 
 ```powershell
 uv run --no-sync pytest
 ```
 
-Run BLE receiver after installing the optional BLE dependency:
+运行 BLE 遥测接收器：
 
 ```powershell
 uv run --extra ble m5-telemetry --address <BLE_ADDRESS> --log logs/telemetry.jsonl
 ```
 
-Run the tkinter visualizer:
+运行 tkinter 姿态可视化工具：
 
 ```powershell
 uv run --extra ble m5-visualizer --address <BLE_ADDRESS>
 ```
 
-Run the VLC 360 player GUI:
+运行 VLC 360 播放器 GUI：
 
 ```powershell
 uv run --extra player m5-vlc-player
 ```
 
-The player reads and writes local settings at:
+播放器本地配置读写路径：
 
 ```text
 config/local.vlc-player.json
 ```
 
-The default VLC directory is `D:\Program Files\VideoLAN\VLC`. VLC 3.x must be installed locally. Codec support is provided by VLC/libVLC itself; this project does not install codecs or transcode video.
+默认 VLC 目录为 `D:\Program Files\VideoLAN\VLC`。本机需要已安装 VLC 3.x。编解码能力由 VLC/libVLC 提供，本项目不安装编解码器，也不转码视频。
 
-For local 2:1 VR files without spherical metadata, the player can expose a local virtual MP4 URL with Google equirectangular metadata. VLC reads the original media data through that local Range server, so the app does not create a second 5-7 GB video file.
+## 360 视频投影
 
-## v1 Boundary
+很多本地 2:1 VR MP4 文件没有 spherical metadata。PotPlayer 可以通过菜单强制选择 `Equirectangular`，但 VLC 可能把它当普通平面视频。
 
-v1 does not control PotPlayer, does not move the mouse, and does not call Windows window-control APIs. The visualizer is a diagnostic PC preview only.
+播放器默认启用 `360 metadata`：程序会启动一个本地虚拟 MP4 Range server，把 Google equirectangular metadata 注入到内存头部，并把媒体数据映射回原始视频文件。这样 VLC 能收到带 360 metadata 的 MP4 流，同时不会生成第二份 5-7 GB 视频缓存。
 
-## v2 Boundary
+## 校准与当前实测配置
 
-v2 uses embedded VLC/libVLC for 360 playback and viewpoint control. It does not control PotPlayer and does not simulate mouse or keyboard input.
+当前实测可用配置保存在 `config/local.vlc-player.json`。关键字段如下：
+
+```json
+{
+  "front_yaw_degrees": 90.0,
+  "front_pitch_degrees": 0.0,
+  "yaw_source_axis": "roll",
+  "yaw_source_sign": 1.0,
+  "pitch_source_axis": "yaw",
+  "pitch_source_sign": -1.0
+}
+```
+
+含义：
+
+- `front_yaw_degrees = 90.0`：当 M5 正对屏幕并按下校准按钮时，VLC 视角不是看视频球面的 `0°`，而是看 `90°`。这与当前样片的画面中心对齐。
+- `yaw_source_axis = roll`、`yaw_source_sign = 1.0`：眼镜上的 M5 实际佩戴姿态下，左右转头主要表现为传感器 `roll` 变化，所以左右视角控制使用 `roll`。
+- `pitch_source_axis = yaw`、`pitch_source_sign = -1.0`：抬头/低头主要表现为传感器 `yaw` 变化，并且方向与播放器需要的方向相反，所以要反号。
+
+推荐使用流程：
+
+1. 启动 `m5-vlc-player`。
+2. 打开 360 视频。
+3. 点击 `连接 M5`。
+4. 眼睛正对屏幕，让 M5 与屏幕保持约 90 度正对关系。
+5. 按下 M5 主按钮，或点击 GUI 的 `校准`。
+6. 如果左右或上下方向不对，使用 `学习左转` 和 `学习抬头` 自动识别轴映射。
+7. 方向正确后点击 `保存配置`。
+
+## 播放控制
+
+播放器画面底部有悬浮控制条，包含：
+
+- `-10s`：后退 10 秒。
+- `播放`：开始或继续播放。
+- `暂停`：暂停播放。
+- `+10s`：快进 10 秒。
+- 进度条：拖动后跳转到对应播放位置。
+- 时间显示：当前时间 / 视频总时长。
+
+键盘快捷键：
+
+- `←`：后退 10 秒。
+- `→`：快进 10 秒。
+
+当焦点在文本输入框或下拉框里时，左右方向键优先用于编辑文本，不触发快进/后退。
+
+## 调参说明
+
+- `Yaw` / `Pitch`：左右和上下控制增益。`1.0` 表示传感器角度与画面角度一比一。
+- `Deadzone`：小抖动死区。值越大，越不容易响应细微晃动。
+- `MaxYaw` / `MaxPitch`：头控最大偏转范围，避免一下转到视频接缝处。
+- `Smooth`：平滑系数。值越小越稳，但响应更慢。
+- `Step`：单次更新允许的最大角度跳变，防止突发数据导致画面猛跳。
+- `FrontYaw` / `FrontPitch`：视频自身正前方偏移。校准能把头部姿态归零，但视频里“人物中心”不一定在 VLC 的 `0°`。
+
+## v1 边界
+
+v1 只交付 M5StickC Plus2 到 PC 的传感器数据链路，不控制 PotPlayer，不移动鼠标，不调用 Windows 窗口控制 API。可视化工具只是 PC 端诊断预览。
+
+## v2 边界
+
+v2 使用内嵌 VLC/libVLC 播放 360 视频，并通过 viewpoint API 控制视角。v2 不控制 PotPlayer，也不模拟鼠标或键盘输入。

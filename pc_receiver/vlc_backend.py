@@ -13,6 +13,9 @@ class VlcBackend(Protocol):
     def play(self) -> None: ...
     def pause(self) -> None: ...
     def stop(self) -> None: ...
+    def get_time_ms(self) -> int: ...
+    def get_length_ms(self) -> int: ...
+    def set_time_ms(self, time_ms: int) -> None: ...
     def update_viewpoint(self, viewpoint: VlcViewpoint) -> None: ...
 
 
@@ -58,6 +61,15 @@ class LibVlcBackend:
 
     def stop(self) -> None:
         self._player.stop()
+
+    def get_time_ms(self) -> int:
+        return max(0, int(self._player.get_time()))
+
+    def get_length_ms(self) -> int:
+        return max(0, int(self._player.get_length()))
+
+    def set_time_ms(self, time_ms: int) -> None:
+        self._player.set_time(max(0, int(time_ms)))
 
     def update_viewpoint(self, viewpoint: VlcViewpoint) -> None:
         target = self._viewpoint.contents

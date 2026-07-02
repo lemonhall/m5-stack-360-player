@@ -74,6 +74,26 @@ class VlcPlayerController:
     def stop(self) -> None:
         self.backend.stop()
 
+    def get_playback_position(self) -> tuple[int, int]:
+        return self.backend.get_time_ms(), self.backend.get_length_ms()
+
+    def seek_relative_seconds(self, seconds: int) -> None:
+        current_ms, length_ms = self.get_playback_position()
+        self.seek_to_ms(current_ms + seconds * 1000, length_ms=length_ms)
+
+    def seek_to_fraction(self, fraction: float) -> None:
+        _, length_ms = self.get_playback_position()
+        if length_ms <= 0:
+            return
+        self.seek_to_ms(round(length_ms * _clamp_float(fraction, 0.0, 1.0)), length_ms=length_ms)
+
+    def seek_to_ms(self, target_ms: int, *, length_ms: int | None = None) -> None:
+        if length_ms is None:
+            length_ms = self.backend.get_length_ms()
+        if length_ms > 0:
+            target_ms = min(length_ms, target_ms)
+        self.backend.set_time_ms(max(0, int(target_ms)))
+
     def update_pose(self, relative_ypr: Vector3) -> None:
         if self.pose_controller.settings != _pose_control_settings(self.config):
             self.pose_controller = _build_pose_controller(self.config)
@@ -137,10 +157,16 @@ class VlcPlayerWindow:
         self.serve_metadata_var = tk.BooleanVar(value=self.config.serve_spherical_metadata)
         self.status_var = tk.StringVar(value="ready")
         self.pose_var = tk.StringVar(value="ypr=(0.0, 0.0, 0.0)")
+        self.progress_var = tk.DoubleVar(value=0.0)
+        self.time_var = tk.StringVar(value="00:00 / 00:00")
+        self.updating_progress = False
 
         self._build_layout()
         self._init_backend()
+        root.bind_all("<Left>", self.on_left_key)
+        root.bind_all("<Right>", self.on_right_key)
         self._poll_messages()
+        self._poll_playback()
 
     def _build_layout(self) -> None:
         top = tk.Frame(self.root)
@@ -190,8 +216,44 @@ class VlcPlayerWindow:
         tk.Label(media_row, text="媒体").pack(side=tk.LEFT)
         tk.Entry(media_row, textvariable=self.media_var).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
 
-        self.video_frame = tk.Frame(self.root, background="black")
-        self.video_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=8)
+        self.video_container = tk.Frame(self.root, background="black")
+        self.video_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=8)
+
+        self.video_frame = tk.Frame(self.video_container, background="black")
+        self.video_frame.place(x=0, y=0, relwidth=1.0, relheight=1.0)
+
+        self.control_bar = tk.Frame(self.video_container, background="#111111", height=48)
+        self.control_bar.place(relx=0.0, rely=1.0, relwidth=1.0, anchor=tk.SW)
+        tk.Button(self.control_bar, text="-10s", command=lambda: self.seek_relative(-10)).pack(
+            side=tk.LEFT, padx=(8, 3), pady=8
+        )
+        tk.Button(self.control_bar, text="播放", command=self.play).pack(side=tk.LEFT, padx=3, pady=8)
+        tk.Button(self.control_bar, text="暂停", command=self.pause).pack(side=tk.LEFT, padx=3, pady=8)
+        tk.Button(self.control_bar, text="+10s", command=lambda: self.seek_relative(10)).pack(
+            side=tk.LEFT, padx=3, pady=8
+        )
+        tk.Scale(
+            self.control_bar,
+            variable=self.progress_var,
+            from_=0.0,
+            to=1000.0,
+            orient=tk.HORIZONTAL,
+            showvalue=False,
+            command=self.on_progress_changed,
+            background="#111111",
+            foreground="white",
+            troughcolor="#3a3a3a",
+            highlightthickness=0,
+        ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=8, pady=4)
+        tk.Label(
+            self.control_bar,
+            textvariable=self.time_var,
+            width=15,
+            anchor=tk.E,
+            background="#111111",
+            foreground="white",
+        ).pack(side=tk.RIGHT, padx=(0, 8), pady=8)
+        self.control_bar.lift()
 
         bottom = tk.Frame(self.root)
         bottom.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=6)
@@ -219,6 +281,7 @@ class VlcPlayerWindow:
             self.controller = VlcPlayerController(self.backend, self.config)
             self.root.update_idletasks()
             self.controller.attach_to_window(self.video_frame.winfo_id())
+            self.control_bar.lift()
             self.status_var.set("VLC ready")
         except Exception as exc:
             self.status_var.set(f"VLC error: {exc}")
@@ -265,6 +328,29 @@ class VlcPlayerWindow:
         if self.controller is not None:
             self.controller.stop()
             self.status_var.set("stopped")
+
+    def seek_relative(self, seconds: int) -> None:
+        if self.controller is not None:
+            self.controller.seek_relative_seconds(seconds)
+            self._refresh_playback_progress()
+
+    def on_left_key(self, event: tk.Event) -> str | None:
+        if _is_text_input(event.widget):
+            return None
+        self.seek_relative(-10)
+        return "break"
+
+    def on_right_key(self, event: tk.Event) -> str | None:
+        if _is_text_input(event.widget):
+            return None
+        self.seek_relative(10)
+        return "break"
+
+    def on_progress_changed(self, value: str) -> None:
+        if self.updating_progress or self.controller is None:
+            return
+        self.controller.seek_to_fraction(float(value) / 1000.0)
+        self._refresh_playback_progress()
 
     def connect_ble(self) -> None:
         if self.ble_thread is not None and self.ble_thread.is_alive():
@@ -348,6 +434,25 @@ class VlcPlayerWindow:
             self._handle_message(message)
         if not self.stop_event.is_set():
             self.root.after(30, self._poll_messages)
+
+    def _poll_playback(self) -> None:
+        self._refresh_playback_progress()
+        if not self.stop_event.is_set():
+            self.root.after(500, self._poll_playback)
+
+    def _refresh_playback_progress(self) -> None:
+        if self.controller is None:
+            return
+        current_ms, length_ms = self.controller.get_playback_position()
+        self.time_var.set(f"{_format_ms(current_ms)} / {_format_ms(length_ms)}")
+        self.updating_progress = True
+        try:
+            if length_ms > 0:
+                self.progress_var.set((current_ms / length_ms) * 1000.0)
+            else:
+                self.progress_var.set(0.0)
+        finally:
+            self.updating_progress = False
 
     def _handle_message(self, message: PlayerMessage) -> None:
         if message.kind == "status":
@@ -507,6 +612,25 @@ def _wrap_degrees(value: float) -> float:
     while value > 180.0:
         value -= 360.0
     return value
+
+
+def _clamp_float(value: float, minimum: float, maximum: float) -> float:
+    return max(minimum, min(maximum, value))
+
+
+def _format_ms(value: int) -> str:
+    total_seconds = max(0, int(value // 1000))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours:
+        return f"{hours:d}:{minutes:02d}:{seconds:02d}"
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def _is_text_input(widget: object) -> bool:
+    if not hasattr(widget, "winfo_class"):
+        return False
+    return widget.winfo_class() in {"Entry", "TEntry", "Text", "Spinbox", "TSpinbox", "TCombobox"}
 
 
 def _prepare_media_path_for_vlc(

@@ -10,6 +10,7 @@ from queue import Queue
 from pc_receiver.vlc_player_app import (
     PlayerMessage,
     VlcPlayerController,
+    _format_ms,
     _prepare_media_path_for_vlc,
     _relative_ypr,
     _start_media_prepare_thread,
@@ -24,6 +25,8 @@ class FakeBackend:
         self.calls: list[tuple[str, object | None]] = []
         self.media_path: str | None = None
         self.viewpoint: VlcViewpoint | None = None
+        self.time_ms = 0
+        self.length_ms = 0
 
     def attach_to_window(self, hwnd: int) -> None:
         self.calls.append(("attach", hwnd))
@@ -40,6 +43,16 @@ class FakeBackend:
 
     def stop(self) -> None:
         self.calls.append(("stop", None))
+
+    def get_time_ms(self) -> int:
+        return self.time_ms
+
+    def get_length_ms(self) -> int:
+        return self.length_ms
+
+    def set_time_ms(self, time_ms: int) -> None:
+        self.time_ms = time_ms
+        self.calls.append(("seek", time_ms))
 
     def update_viewpoint(self, viewpoint: VlcViewpoint) -> None:
         self.viewpoint = viewpoint
@@ -192,6 +205,43 @@ def test_controller_playback_methods_delegate_to_backend() -> None:
     controller.stop()
 
     assert backend.calls == [("play", None), ("pause", None), ("stop", None)]
+
+
+def test_controller_seeks_relative_seconds_and_clamps_to_media_bounds() -> None:
+    backend = FakeBackend()
+    backend.time_ms = 20_000
+    backend.length_ms = 60_000
+    controller = VlcPlayerController(backend, VlcPlayerConfig())
+
+    controller.seek_relative_seconds(10)
+    controller.seek_relative_seconds(-90)
+
+    assert backend.calls == [("seek", 30_000), ("seek", 0)]
+
+
+def test_controller_seeks_to_fraction_of_media_length() -> None:
+    backend = FakeBackend()
+    backend.length_ms = 120_000
+    controller = VlcPlayerController(backend, VlcPlayerConfig())
+
+    controller.seek_to_fraction(0.25)
+    controller.seek_to_fraction(1.5)
+
+    assert backend.calls == [("seek", 30_000), ("seek", 120_000)]
+
+
+def test_controller_reports_playback_position() -> None:
+    backend = FakeBackend()
+    backend.time_ms = 33_000
+    backend.length_ms = 90_000
+    controller = VlcPlayerController(backend, VlcPlayerConfig())
+
+    assert controller.get_playback_position() == (33_000, 90_000)
+
+
+def test_format_ms_uses_minutes_or_hours() -> None:
+    assert _format_ms(65_000) == "01:05"
+    assert _format_ms(3_665_000) == "1:01:05"
 
 
 def test_relative_ypr_wraps_yaw_across_180_boundary() -> None:
