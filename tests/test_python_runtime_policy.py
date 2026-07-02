@@ -20,7 +20,19 @@ def test_console_script_project_is_packaged() -> None:
     assert pyproject["project"]["scripts"]["m5-visualizer"] == (
         "pc_receiver.visualizer_app:main"
     )
+    assert pyproject["project"]["scripts"]["m5-vlc-player"] == (
+        "pc_receiver.vlc_player_app:main"
+    )
+    assert "python-vlc>=3.0.21203" in pyproject["project"]["optional-dependencies"]["player"]
+    assert "bleak>=0.22.3" in pyproject["project"]["optional-dependencies"]["player"]
     assert pyproject["build-system"]["build-backend"] == "setuptools.build_meta"
     assert pyproject["tool"]["setuptools"]["packages"]["find"]["include"] == [
         "pc_receiver*"
     ]
+
+
+def test_local_player_config_is_gitignored() -> None:
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+
+    assert "config/local.*.json" in gitignore
+    assert "config/vr-cache/" in gitignore
