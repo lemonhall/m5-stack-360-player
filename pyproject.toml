@@ -18,6 +18,7 @@ dev = [
 
 [project.scripts]
 m5-telemetry = "pc_receiver.app:main"
+m5-visualizer = "pc_receiver.visualizer_app:main"
 
 [build-system]
 requires = ["setuptools>=69"]

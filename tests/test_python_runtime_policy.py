@@ -17,6 +17,9 @@ def test_ble_runtime_is_pinned_to_python_313() -> None:
 def test_console_script_project_is_packaged() -> None:
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
+    assert pyproject["project"]["scripts"]["m5-visualizer"] == (
+        "pc_receiver.visualizer_app:main"
+    )
     assert pyproject["build-system"]["build-backend"] == "setuptools.build_meta"
     assert pyproject["tool"]["setuptools"]["packages"]["find"]["include"] == [
         "pc_receiver*"
