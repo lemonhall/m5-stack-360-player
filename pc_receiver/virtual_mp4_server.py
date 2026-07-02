@@ -7,6 +7,7 @@ from io import BytesIO
 from pathlib import Path
 import posixpath
 from threading import Thread
+from collections.abc import Iterator
 from typing import BinaryIO
 from urllib.parse import quote, urlparse
 from uuid import uuid4
@@ -36,6 +37,12 @@ class VirtualMp4:
         if start < 0 or end < start or end >= self.size:
             raise ValueError("invalid virtual MP4 range")
         chunks: list[bytes] = []
+        chunks.extend(self.iter_range(start, end))
+        return b"".join(chunks)
+
+    def iter_range(self, start: int, end: int, *, chunk_size: int = 1024 * 1024) -> Iterator[bytes]:
+        if start < 0 or end < start or end >= self.size:
+            raise ValueError("invalid virtual MP4 range")
         with self.source_path.open("rb") as src:
             for segment in self.segments:
                 if segment.end_exclusive <= start:
@@ -44,8 +51,7 @@ class VirtualMp4:
                     break
                 local_start = max(start, segment.start) - segment.start
                 local_end = min(end + 1, segment.end_exclusive) - segment.start
-                chunks.append(_read_segment(src, segment, local_start, local_end))
-        return b"".join(chunks)
+                yield from _iter_segment(src, segment, local_start, local_end, chunk_size)
 
 
 def build_equirectangular_virtual_mp4(source_path: str | Path) -> VirtualMp4:
@@ -133,6 +139,12 @@ class _VirtualMp4Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def do_GET(self) -> None:
+        self._serve_media(send_body=True)
+
+    def do_HEAD(self) -> None:
+        self._serve_media(send_body=False)
+
+    def _serve_media(self, *, send_body: bool) -> None:
         virtual = self._lookup_media()
         if virtual is None:
             self.send_error(HTTPStatus.NOT_FOUND)
@@ -143,16 +155,17 @@ class _VirtualMp4Handler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
             return
 
-        payload = virtual.read_range(start, end)
         status = HTTPStatus.PARTIAL_CONTENT if self.headers.get("Range") else HTTPStatus.OK
         self.send_response(status)
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Type", "video/mp4")
-        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Content-Length", str(end - start + 1))
         if status == HTTPStatus.PARTIAL_CONTENT:
             self.send_header("Content-Range", f"bytes {start}-{end}/{virtual.size}")
         self.end_headers()
-        self.wfile.write(payload)
+        if send_body:
+            for chunk in virtual.iter_range(start, end):
+                self.wfile.write(chunk)
 
     def log_message(self, format: str, *args: object) -> None:
         return
@@ -196,3 +209,29 @@ def _read_segment(src: BinaryIO, segment: VirtualSegment, start: int, end: int) 
         raise ValueError("file-backed segment missing source offset")
     src.seek(segment.source_offset + start)
     return src.read(end - start)
+
+
+def _iter_segment(
+    src: BinaryIO,
+    segment: VirtualSegment,
+    start: int,
+    end: int,
+    chunk_size: int,
+) -> Iterator[bytes]:
+    if segment.data is not None:
+        offset = start
+        while offset < end:
+            next_offset = min(offset + chunk_size, end)
+            yield segment.data[offset:next_offset]
+            offset = next_offset
+        return
+    if segment.source_offset is None:
+        raise ValueError("file-backed segment missing source offset")
+    src.seek(segment.source_offset + start)
+    remaining = end - start
+    while remaining:
+        chunk = src.read(min(chunk_size, remaining))
+        if not chunk:
+            raise ValueError("unexpected EOF while reading virtual MP4 segment")
+        yield chunk
+        remaining -= len(chunk)

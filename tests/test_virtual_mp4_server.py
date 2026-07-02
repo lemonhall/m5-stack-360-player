@@ -67,3 +67,27 @@ def test_virtual_mp4_server_serves_range_without_cache_file(tmp_path) -> None:
         assert not list(tmp_path.glob("*.spherical.mp4"))
     finally:
         server.stop()
+
+
+def test_virtual_mp4_server_supports_head_and_full_get(tmp_path) -> None:
+    source = tmp_path / "sample.mp4"
+    source.write_bytes(_sample_mp4())
+    server = VirtualMp4Server()
+    server.start()
+    try:
+        url = server.add_media(source)
+        virtual = build_equirectangular_virtual_mp4(source)
+
+        head_request = Request(url, method="HEAD")
+        with urlopen(head_request, timeout=5) as response:
+            assert response.status == 200
+            assert int(response.headers["Content-Length"]) == virtual.size
+            assert response.headers["Accept-Ranges"] == "bytes"
+
+        with urlopen(url, timeout=5) as response:
+            payload = response.read()
+
+        assert response.status == 200
+        assert payload == virtual.read_range(0, virtual.size - 1)
+    finally:
+        server.stop()
