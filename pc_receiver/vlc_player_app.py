@@ -12,7 +12,13 @@ from tkinter import filedialog, messagebox, ttk
 from typing import Literal
 
 from pc_receiver.app import DEFAULT_CHARACTERISTIC_UUID
-from pc_receiver.pose_control import AxisName, PoseControlSettings, PoseController, map_control_axes
+from pc_receiver.pose_control import (
+    AxisName,
+    PoseControlSettings,
+    PoseController,
+    learn_axis_mapping_with_magnitude,
+    map_control_axes,
+)
 from pc_receiver.telemetry import TelemetryError, Vector3, parse_telemetry
 from pc_receiver.transport import iter_ble_notifications
 from pc_receiver.virtual_mp4_server import VirtualMp4Server
@@ -104,6 +110,8 @@ class VlcPlayerWindow:
         self.controller: VlcPlayerController | None = None
         self.center_ypr: Vector3 | None = None
         self.latest_ypr: Vector3 | None = None
+        self.learning_motion: Literal["yaw", "pitch"] | None = None
+        self.learning_start_ypr: Vector3 | None = None
 
         root.title("M5 VLC 360 Player")
         root.geometry("1100x720")
@@ -170,6 +178,12 @@ class VlcPlayerWindow:
         self._entry(mapping, "YawSign", self.yaw_source_sign_var, 4)
         self._axis_picker(mapping, "PitchAxis", self.pitch_source_axis_var)
         self._entry(mapping, "PitchSign", self.pitch_source_sign_var, 4)
+        tk.Button(mapping, text="学习左转", command=lambda: self.start_motion_learning("yaw")).pack(
+            side=tk.LEFT, padx=(12, 3)
+        )
+        tk.Button(mapping, text="学习抬头", command=lambda: self.start_motion_learning("pitch")).pack(
+            side=tk.LEFT, padx=3
+        )
 
         media_row = tk.Frame(self.root)
         media_row.pack(side=tk.TOP, fill=tk.X, padx=8, pady=4)
@@ -276,6 +290,42 @@ class VlcPlayerWindow:
             self.controller.reset_pose_control()
             self.controller.update_pose((0.0, 0.0, 0.0))
         self.status_var.set("center calibrated")
+
+    def start_motion_learning(self, target: Literal["yaw", "pitch"]) -> None:
+        if self.latest_ypr is None:
+            self.status_var.set("cannot learn before first M5 packet")
+            return
+        self.learning_motion = target
+        self.learning_start_ypr = self.latest_ypr
+        label = "left turn" if target == "yaw" else "look up"
+        self.status_var.set(f"learning {label}: move now")
+        self.root.after(1500, self.finish_motion_learning)
+
+    def finish_motion_learning(self) -> None:
+        if self.learning_motion is None or self.learning_start_ypr is None or self.latest_ypr is None:
+            return
+        target = self.learning_motion
+        axis, sign, magnitude = learn_axis_mapping_with_magnitude(
+            self.learning_start_ypr,
+            self.latest_ypr,
+        )
+        if magnitude < 3.0:
+            self.status_var.set("motion too small to learn axis")
+            self.learning_motion = None
+            self.learning_start_ypr = None
+            return
+        if target == "yaw":
+            self.yaw_source_axis_var.set(axis)
+            self.yaw_source_sign_var.set(str(sign))
+            self.status_var.set(f"learned left turn: YawAxis={axis} YawSign={sign:.0f}")
+        else:
+            self.pitch_source_axis_var.set(axis)
+            self.pitch_source_sign_var.set(str(sign))
+            self.status_var.set(f"learned look up: PitchAxis={axis} PitchSign={sign:.0f}")
+        self.learning_motion = None
+        self.learning_start_ypr = None
+        if self.controller is not None:
+            self.controller.reset_pose_control()
 
     def save_settings(self) -> None:
         self.config = self._config_from_fields(last_media=self.media_var.get())

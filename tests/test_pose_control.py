@@ -1,6 +1,41 @@
 from __future__ import annotations
 
-from pc_receiver.pose_control import PoseControlSettings, PoseController, map_control_axes
+from pc_receiver.pose_control import (
+    PoseControlSettings,
+    PoseController,
+    learn_axis_mapping,
+    learn_axis_mapping_with_magnitude,
+    map_control_axes,
+)
+
+
+def test_learn_axis_mapping_chooses_largest_motion_axis_and_positive_sign() -> None:
+    axis, sign = learn_axis_mapping((10.0, -2.0, 0.0), (12.0, -5.0, 18.0))
+
+    assert axis == "roll"
+    assert sign == 1.0
+
+
+def test_learn_axis_mapping_inverts_negative_motion_to_positive_control() -> None:
+    axis, sign = learn_axis_mapping((10.0, -2.0, 0.0), (8.0, -28.0, -4.0))
+
+    assert axis == "pitch"
+    assert sign == -1.0
+
+
+def test_learn_axis_mapping_wraps_yaw_delta() -> None:
+    axis, sign = learn_axis_mapping((179.0, 0.0, 0.0), (-170.0, 2.0, 1.0))
+
+    assert axis == "yaw"
+    assert sign == 1.0
+
+
+def test_learn_axis_mapping_reports_largest_motion_magnitude() -> None:
+    axis, sign, magnitude = learn_axis_mapping_with_magnitude((0.0, 0.0, 0.0), (1.0, -7.0, 3.0))
+
+    assert axis == "pitch"
+    assert sign == -1.0
+    assert magnitude == 7.0
 
 
 def test_map_control_axes_uses_configured_source_axes_and_signs() -> None:

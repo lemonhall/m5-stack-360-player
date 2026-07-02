@@ -64,6 +64,21 @@ def map_control_axes(relative_ypr: Vector3, settings: PoseControlSettings) -> Ve
     )
 
 
+def learn_axis_mapping(start_ypr: Vector3, end_ypr: Vector3) -> tuple[AxisName, float]:
+    axis, sign, _ = learn_axis_mapping_with_magnitude(start_ypr, end_ypr)
+    return axis, sign
+
+
+def learn_axis_mapping_with_magnitude(start_ypr: Vector3, end_ypr: Vector3) -> tuple[AxisName, float, float]:
+    deltas: dict[AxisName, float] = {
+        "yaw": _wrap_degrees(end_ypr[0] - start_ypr[0]),
+        "pitch": end_ypr[1] - start_ypr[1],
+        "roll": end_ypr[2] - start_ypr[2],
+    }
+    axis = max(deltas, key=lambda name: abs(deltas[name]))
+    return axis, _sign(deltas[axis]), abs(deltas[axis])
+
+
 def _axis_value(ypr: Vector3, axis: str) -> float:
     if axis == "yaw":
         return ypr[0]
@@ -76,6 +91,14 @@ def _axis_value(ypr: Vector3, axis: str) -> float:
 
 def _sign(value: float) -> float:
     return -1.0 if value < 0.0 else 1.0
+
+
+def _wrap_degrees(value: float) -> float:
+    while value <= -180.0:
+        value += 360.0
+    while value > 180.0:
+        value -= 360.0
+    return value
 
 
 def _step_toward(current: float, target: float, max_step: float) -> float:
