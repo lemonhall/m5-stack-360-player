@@ -28,7 +28,7 @@ v1 不做：
 | M1 | 找到并导入官方 IMU/cube 示例 | 有来源记录；工程能构建；屏幕可视化入口保留 | `docs/hardware/m5stickc-plus2-example-source.md` 存在；`pio run` exit code 0 | done |
 | M2 | 固件 BLE JSON 遥测 | 遥测包含 `seq/ms/acc/gyro/btn` 和 `ypr` 或 `quat`；默认频率约 30 Hz 且可配置 | `uv run --no-sync pytest tests/test_firmware_static.py` 7 passed；串口 JSON 样例可解析 | done |
 | M3 | PC 接收、显示、日志、校准 | PC 程序能接收模拟或真实遥测；按钮事件更新中心姿态；JSONL 每行可解析 | `uv run --no-sync pytest` 19 passed；模拟 BLE flow 通过 | done |
-| M4 | 真实 M5 硬件链路验收 | M5 屏幕可视化正常；PC 通过 BLE 收包；按主按钮后相对姿态归零附近 | 固件已上传 COM5；串口 JSON 已验证；真实 BLE GATT 接收未验证 | blocked |
+| M4 | 真实 M5 硬件链路验收 | M5 屏幕可视化正常；PC 通过 BLE 收包；按主按钮后相对姿态归零附近 | 固件已上传 COM5；串口 JSON 已验证；真实 BLE GATT 接收已验证 | partial |
 
 ## Plan Index
 
@@ -40,7 +40,7 @@ v1 不做：
 |---|---|---|---|---|---|---|
 | REQ-0001-001 | PRD-0001 | v1-sensor-link M1 | 构建检查 | COM5 上传 | official source doc + `pio run` success | done |
 | REQ-0001-002 | PRD-0001 | v1-sensor-link M2 | 遥测字段测试 | COM5 serial JSON | 10 JSON lines captured from COM5 | done |
-| REQ-0001-003 | PRD-0001 | v1-sensor-link M2/M3 | BLE adapter boundary | BLE GATT live | firmware/service implemented; `bleak` install timed out | blocked |
+| REQ-0001-003 | PRD-0001 | v1-sensor-link M2/M3 | BLE adapter boundary | BLE GATT live | `uv run --extra ble m5-telemetry --address 0C:8B:95:B4:7B:5A --max-packets 3` received 3 packets | done |
 | REQ-0001-004 | PRD-0001 | v1-sensor-link M2/M3 | JSON parser 测试 | M3 模拟 E2E | `uv run --no-sync pytest` 19 passed | done |
 | REQ-0001-005 | PRD-0001 | v1-sensor-link M2 | 频率配置测试 | serial interval sample | `TELEMETRY_HZ = 30`; serial `ms` increments around 36 ms | done |
 | REQ-0001-006 | PRD-0001 | v1-sensor-link M3 | 校准状态测试 | M4 主按钮验收 | unit tests pass; real button BLE event not verified | partial |
@@ -113,24 +113,25 @@ v1 不做：
 - COM5 serial sample after upload emitted JSON with `seq/ms/ypr/acc/gyro/btn`.
 - `rg` suspicious mojibake/NUL scan: no hits after removing self-matching command text.
 - Production path PotPlayer/control scan over `pc_receiver firmware platformio.ini pyproject.toml`: no hits.
-- BLE live dependency check: `uv run --extra ble`, `uv pip install bleak`, and pip install via `.venv` timed out; true PC BLE GATT receive remains blocked by Python BLE dependency installation.
+- BLE live dependency check initially timed out because uv selected Python 3.14 for `.venv`, which caused Windows BLE `winrt-*` dependencies to enter build paths. Pinning project runtime to Python 3.13 fixed dependency installation.
+- BLE live receive verified with `M5HeadTracker` at `0C:8B:95:B4:7B:5A`; `uv run --extra ble m5-telemetry --address 0C:8B:95:B4:7B:5A --log logs\ble-live-uv-3.jsonl --max-packets 3` received packets `seq=64394..64396`.
 
 ## Tashan Review - v1 / Implementation
 
 - reviewer_context: same-model
 - round: 1
 - cost_profile: standard
-- verdict: blocked
-- blocker_count: 1
+- verdict: pass-with-followup
+- blocker_count: 0
 - major_count: 0
 - stuck_signatures: none
 - regression_signatures: none
 - commands_checked: `uv run --no-sync pytest`; `pio run`; `pio run -t upload --upload-port COM5`; serial COM5 read; production path control scan; mojibake scan
-- residual_risks: true PC BLE GATT receive has not been verified because `bleak` installation/sync timed out.
+- residual_risks: real button-center BLE event still needs an explicit press test; PotPlayer control remains out of v1 scope.
 
 ### Findings
 
 | severity | signature | evidence | disposition |
 |---|---|---|---|
-| BLOCKER | ble-live::REQ-0001-003::bleak-install-timeout | `uv run --extra ble`, `uv pip install bleak`, and pip install timed out | carry forward before declaring M4/v1 fully done |
+| RESOLVED | ble-live::REQ-0001-003::python-314-winrt-build-path | `uv run --extra ble` initially selected Python 3.14 and blocked while building `winrt-*`; Python 3.13 pin installed wheels and live BLE receive succeeded | fixed by `.python-version`, `requires-python`, and package metadata |
 | NOTE | firmware::button-update::m5-update-crash | serial captured Guru Meditation at `main.cpp:144`; addr2line mapped crash to `StickCP2.update()` | fixed by raw GPIO37 edge read and regression static test |
