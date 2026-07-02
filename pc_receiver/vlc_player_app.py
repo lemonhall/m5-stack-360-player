@@ -8,11 +8,11 @@ from queue import Empty, Queue
 import sys
 from threading import Event, Thread
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 from typing import Literal
 
 from pc_receiver.app import DEFAULT_CHARACTERISTIC_UUID
-from pc_receiver.pose_control import PoseControlSettings, PoseController
+from pc_receiver.pose_control import AxisName, PoseControlSettings, PoseController, map_control_axes
 from pc_receiver.telemetry import TelemetryError, Vector3, parse_telemetry
 from pc_receiver.transport import iter_ble_notifications
 from pc_receiver.virtual_mp4_server import VirtualMp4Server
@@ -118,6 +118,10 @@ class VlcPlayerWindow:
         self.max_pitch_var = tk.StringVar(value=str(self.config.max_pitch_degrees))
         self.smoothing_var = tk.StringVar(value=str(self.config.smoothing_alpha))
         self.max_step_var = tk.StringVar(value=str(self.config.max_step_degrees))
+        self.yaw_source_axis_var = tk.StringVar(value=self.config.yaw_source_axis)
+        self.yaw_source_sign_var = tk.StringVar(value=str(self.config.yaw_source_sign))
+        self.pitch_source_axis_var = tk.StringVar(value=self.config.pitch_source_axis)
+        self.pitch_source_sign_var = tk.StringVar(value=str(self.config.pitch_source_sign))
         self.serve_metadata_var = tk.BooleanVar(value=self.config.serve_spherical_metadata)
         self.status_var = tk.StringVar(value="ready")
         self.pose_var = tk.StringVar(value="ypr=(0.0, 0.0, 0.0)")
@@ -154,6 +158,13 @@ class VlcPlayerWindow:
             side=tk.LEFT, padx=(10, 2)
         )
 
+        mapping = tk.Frame(self.root)
+        mapping.pack(side=tk.TOP, fill=tk.X, padx=8, pady=4)
+        self._axis_picker(mapping, "YawAxis", self.yaw_source_axis_var)
+        self._entry(mapping, "YawSign", self.yaw_source_sign_var, 4)
+        self._axis_picker(mapping, "PitchAxis", self.pitch_source_axis_var)
+        self._entry(mapping, "PitchSign", self.pitch_source_sign_var, 4)
+
         media_row = tk.Frame(self.root)
         media_row.pack(side=tk.TOP, fill=tk.X, padx=8, pady=4)
         tk.Label(media_row, text="媒体").pack(side=tk.LEFT)
@@ -170,6 +181,16 @@ class VlcPlayerWindow:
     def _entry(self, parent: tk.Frame, label: str, variable: tk.StringVar, width: int) -> None:
         tk.Label(parent, text=label).pack(side=tk.LEFT, padx=(8, 2))
         tk.Entry(parent, textvariable=variable, width=width).pack(side=tk.LEFT)
+
+    def _axis_picker(self, parent: tk.Frame, label: str, variable: tk.StringVar) -> None:
+        tk.Label(parent, text=label).pack(side=tk.LEFT, padx=(8, 2))
+        ttk.Combobox(
+            parent,
+            textvariable=variable,
+            values=("yaw", "pitch", "roll"),
+            width=6,
+            state="readonly",
+        ).pack(side=tk.LEFT)
 
     def _init_backend(self) -> None:
         try:
@@ -289,11 +310,14 @@ class VlcPlayerWindow:
                 if self.controller is not None:
                     self.controller.reset_pose_control()
             relative = _relative_ypr(message.ypr, self.center_ypr)
+            self.config = self._config_from_fields(last_media=self.media_var.get())
+            mapped = map_control_axes(relative, _pose_control_settings(self.config))
             self.pose_var.set(
-                f"relative=({relative[0]:.1f}, {relative[1]:.1f}, {relative[2]:.1f})"
+                "relative="
+                f"({relative[0]:.1f}, {relative[1]:.1f}, {relative[2]:.1f}) "
+                f"mapped=({mapped[0]:.1f}, {mapped[1]:.1f})"
             )
             if self.controller is not None:
-                self.config = self._config_from_fields(last_media=self.media_var.get())
                 self.controller.config = self.config
                 self.controller.update_pose(relative)
 
@@ -317,6 +341,10 @@ class VlcPlayerWindow:
             max_pitch_degrees=float(self.max_pitch_var.get()),
             smoothing_alpha=float(self.smoothing_var.get()),
             max_step_degrees=float(self.max_step_var.get()),
+            yaw_source_axis=_axis_from_field(self.yaw_source_axis_var.get()),
+            yaw_source_sign=float(self.yaw_source_sign_var.get()),
+            pitch_source_axis=_axis_from_field(self.pitch_source_axis_var.get()),
+            pitch_source_sign=float(self.pitch_source_sign_var.get()),
             serve_spherical_metadata=bool(self.serve_metadata_var.get()),
             auto_connect_ble=False,
             auto_play=False,
@@ -392,7 +420,17 @@ def _pose_control_settings(config: VlcPlayerConfig) -> PoseControlSettings:
         max_pitch_degrees=config.max_pitch_degrees,
         smoothing_alpha=config.smoothing_alpha,
         max_step_degrees=config.max_step_degrees,
+        yaw_source_axis=_axis_from_field(config.yaw_source_axis),
+        yaw_source_sign=config.yaw_source_sign,
+        pitch_source_axis=_axis_from_field(config.pitch_source_axis),
+        pitch_source_sign=config.pitch_source_sign,
     )
+
+
+def _axis_from_field(value: str) -> AxisName:
+    if value in ("yaw", "pitch", "roll"):
+        return value
+    return "yaw"
 
 
 def _relative_ypr(current: Vector3, center: Vector3 | None) -> Vector3:

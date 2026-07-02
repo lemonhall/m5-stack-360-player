@@ -25,6 +25,10 @@ def test_load_config_missing_file_returns_defaults(tmp_path) -> None:
     assert config.max_pitch_degrees == 45.0
     assert config.smoothing_alpha == 0.25
     assert config.max_step_degrees == 6.0
+    assert config.yaw_source_axis == "yaw"
+    assert config.yaw_source_sign == 1.0
+    assert config.pitch_source_axis == "pitch"
+    assert config.pitch_source_sign == 1.0
     assert config.serve_spherical_metadata is True
 
 
@@ -55,6 +59,10 @@ def test_save_config_creates_parent_directory_and_round_trips(tmp_path) -> None:
         max_pitch_degrees=40.0,
         smoothing_alpha=0.5,
         max_step_degrees=4.0,
+        yaw_source_axis="roll",
+        yaw_source_sign=-1.0,
+        pitch_source_axis="yaw",
+        pitch_source_sign=1.0,
         serve_spherical_metadata=False,
         auto_connect_ble=True,
         auto_play=True,

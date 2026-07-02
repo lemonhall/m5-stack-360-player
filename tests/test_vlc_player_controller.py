@@ -135,7 +135,31 @@ def test_controller_updates_viewpoint_from_relative_ypr() -> None:
 
     controller.update_pose((5.0, -3.0, 1.0))
 
-    assert backend.viewpoint == VlcViewpoint(yaw=-10.0, pitch=3.0, roll=1.0, field_of_view=70.0)
+    assert backend.viewpoint == VlcViewpoint(yaw=-10.0, pitch=3.0, roll=0.0, field_of_view=70.0)
+
+
+def test_controller_applies_configured_head_motion_axes_before_vlc_mapping() -> None:
+    backend = FakeBackend()
+    controller = VlcPlayerController(
+        backend,
+        VlcPlayerConfig(
+            gain_yaw=1.0,
+            gain_pitch=1.0,
+            deadzone_degrees=0.0,
+            yaw_source_axis="roll",
+            yaw_source_sign=1.0,
+            pitch_source_axis="yaw",
+            pitch_source_sign=-1.0,
+            smoothing_alpha=1.0,
+            max_step_degrees=999.0,
+            max_yaw_degrees=180.0,
+            max_pitch_degrees=90.0,
+        ),
+    )
+
+    controller.update_pose((12.0, 99.0, 8.0))
+
+    assert backend.viewpoint == VlcViewpoint(yaw=-8.0, pitch=12.0, roll=0.0, field_of_view=80.0)
 
 
 def test_controller_reset_pose_control_recenters_viewpoint() -> None:

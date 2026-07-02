@@ -24,6 +24,10 @@ class VlcPlayerConfig:
     max_pitch_degrees: float = 45.0
     smoothing_alpha: float = 0.25
     max_step_degrees: float = 6.0
+    yaw_source_axis: str = "yaw"
+    yaw_source_sign: float = 1.0
+    pitch_source_axis: str = "pitch"
+    pitch_source_sign: float = 1.0
     serve_spherical_metadata: bool = True
     auto_connect_ble: bool = False
     auto_play: bool = False

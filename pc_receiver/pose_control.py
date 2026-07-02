@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from pc_receiver.telemetry import Vector3
+
+AxisName = Literal["yaw", "pitch", "roll"]
 
 
 @dataclass(frozen=True)
@@ -11,6 +14,10 @@ class PoseControlSettings:
     max_pitch_degrees: float = 45.0
     smoothing_alpha: float = 0.25
     max_step_degrees: float = 6.0
+    yaw_source_axis: AxisName = "yaw"
+    yaw_source_sign: float = 1.0
+    pitch_source_axis: AxisName = "pitch"
+    pitch_source_sign: float = 1.0
 
 
 class PoseController:
@@ -19,14 +26,15 @@ class PoseController:
         self._filtered: Vector3 | None = None
 
     def update(self, relative_ypr: Vector3) -> Vector3:
+        control_ypr = map_control_axes(relative_ypr, self.settings)
         target = (
-            _clamp(relative_ypr[0], -self.settings.max_yaw_degrees, self.settings.max_yaw_degrees),
+            _clamp(control_ypr[0], -self.settings.max_yaw_degrees, self.settings.max_yaw_degrees),
             _clamp(
-                relative_ypr[1],
+                control_ypr[1],
                 -self.settings.max_pitch_degrees,
                 self.settings.max_pitch_degrees,
             ),
-            relative_ypr[2],
+            control_ypr[2],
         )
         if self._filtered is None:
             self._filtered = target
@@ -46,6 +54,28 @@ class PoseController:
     def reset(self) -> Vector3:
         self._filtered = (0.0, 0.0, 0.0)
         return self._filtered
+
+
+def map_control_axes(relative_ypr: Vector3, settings: PoseControlSettings) -> Vector3:
+    return (
+        _axis_value(relative_ypr, settings.yaw_source_axis) * _sign(settings.yaw_source_sign),
+        _axis_value(relative_ypr, settings.pitch_source_axis) * _sign(settings.pitch_source_sign),
+        0.0,
+    )
+
+
+def _axis_value(ypr: Vector3, axis: str) -> float:
+    if axis == "yaw":
+        return ypr[0]
+    if axis == "pitch":
+        return ypr[1]
+    if axis == "roll":
+        return ypr[2]
+    return ypr[0]
+
+
+def _sign(value: float) -> float:
+    return -1.0 if value < 0.0 else 1.0
 
 
 def _step_toward(current: float, target: float, max_step: float) -> float:
