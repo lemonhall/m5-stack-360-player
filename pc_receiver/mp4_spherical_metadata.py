@@ -30,6 +30,7 @@ class Atom:
     header_size: int
     children: list["Atom"] | None = None
     inject_spherical: bool = False
+    trailing: bool = False
 
     @property
     def content_offset(self) -> int:
@@ -40,6 +41,8 @@ class Atom:
         return self.offset + self.size
 
     def new_size(self) -> int:
+        if self.trailing:
+            return self.size
         if self.children is None:
             return self.size
         total = self.header_size + sum(child.new_size() for child in self.children)
@@ -72,7 +75,7 @@ def inject_equirectangular_metadata(source: str | Path, output: str | Path) -> N
     output_path = Path(output)
     with source_path.open("rb") as src:
         file_size = source_path.stat().st_size
-        atoms = _parse_children(src, 0, file_size)
+        atoms = _parse_children(src, 0, file_size, allow_trailing_junk=True)
         for atom in atoms:
             _mark_video_tracks(src, atom)
 
@@ -99,13 +102,39 @@ def _cache_filename(source: Path) -> str:
     return f"{source.stem}.{fingerprint}.spherical{source.suffix}"
 
 
-def _parse_children(src: BinaryIO, start: int, limit: int) -> list[Atom]:
+def _parse_children(
+    src: BinaryIO, start: int, limit: int, *, allow_trailing_junk: bool = False
+) -> list[Atom]:
     children: list[Atom] = []
     offset = start
     while offset + 8 <= limit:
-        atom = _parse_atom(src, offset, limit)
+        try:
+            atom = _parse_atom(src, offset, limit)
+        except ValueError:
+            if allow_trailing_junk:
+                children.append(
+                    Atom(
+                        offset=offset,
+                        size=limit - offset,
+                        name=b"tail",
+                        header_size=0,
+                        trailing=True,
+                    )
+                )
+                return children
+            raise
         children.append(atom)
         offset = atom.end_offset
+    if allow_trailing_junk and offset < limit:
+        children.append(
+            Atom(
+                offset=offset,
+                size=limit - offset,
+                name=b"tail",
+                header_size=0,
+                trailing=True,
+            )
+        )
     return children
 
 
@@ -160,6 +189,9 @@ def _first_child(atom: Atom, name: bytes) -> Atom | None:
 
 
 def _write_atom(src: BinaryIO, dst: BinaryIO, atom: Atom, chunk_offset_delta: int) -> None:
+    if atom.trailing:
+        _copy_range(src, dst, atom.offset, atom.size)
+        return
     if atom.children is None:
         if atom.name == b"stco" and chunk_offset_delta:
             _write_stco(src, dst, atom, chunk_offset_delta)

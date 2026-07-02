@@ -72,3 +72,20 @@ def test_ensure_copy_reuses_existing_cache_file(tmp_path) -> None:
 
     assert second == first
     assert second.read_bytes() == b"cached"
+
+
+def test_ensure_copy_ignores_short_top_level_trailing_padding(tmp_path) -> None:
+    source = tmp_path / "sample.mp4"
+    video_trak = _box(b"trak", _box(b"mdia", _hdlr(b"vide")))
+    source.write_bytes(
+        _box(b"ftyp", b"isom")
+        + _box(b"moov", video_trak)
+        + _box(b"mdat", b"")
+        + (b"\x0b" * 11)
+    )
+
+    output = ensure_equirectangular_metadata_copy(source, tmp_path / "cache")
+    payload = output.read_bytes()
+
+    assert SPHERICAL_UUID_ID in payload
+    assert payload.endswith(b"\x0b" * 11)
