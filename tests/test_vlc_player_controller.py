@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from pc_receiver.vlc_backend import validate_vlc_dir
-from pc_receiver.vlc_player_app import VlcPlayerController
+from pc_receiver.vlc_player_app import VlcPlayerController, _relative_ypr
 from pc_receiver.vlc_player_config import VlcPlayerConfig
 from pc_receiver.vlc_viewpoint import VlcViewpoint
 
@@ -78,3 +78,11 @@ def test_controller_playback_methods_delegate_to_backend() -> None:
     controller.stop()
 
     assert backend.calls == [("play", None), ("pause", None), ("stop", None)]
+
+
+def test_relative_ypr_wraps_yaw_across_180_boundary() -> None:
+    assert _relative_ypr((-179.0, 5.0, 2.0), (179.0, 1.0, -1.0)) == (
+        2.0,
+        4.0,
+        3.0,
+    )
