@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from pc_receiver.vlc_backend import validate_vlc_dir
-from pc_receiver.vlc_player_app import VlcPlayerController, _relative_ypr
+from pc_receiver.vlc_player_app import VlcPlayerController, _prepare_media_path_for_vlc, _relative_ypr
 from pc_receiver.vlc_player_config import VlcPlayerConfig
 from pc_receiver.vlc_viewpoint import VlcViewpoint
 
@@ -55,6 +55,24 @@ def test_controller_open_media_updates_config_and_starts_playback() -> None:
 
     assert updated.last_media == r"D:\video\movie.mp4"
     assert backend.calls == [("open", r"D:\video\movie.mp4"), ("play", None)]
+
+
+def test_controller_open_media_preserves_original_path_when_vlc_uses_prepared_copy() -> None:
+    backend = FakeBackend()
+    controller = VlcPlayerController(backend, VlcPlayerConfig(auto_play=False))
+
+    updated = controller.open_media(r"D:\video\movie.mp4", vlc_media_path=r"E:\cache\movie.mp4")
+
+    assert updated.last_media == r"D:\video\movie.mp4"
+    assert backend.calls == [("open", r"E:\cache\movie.mp4")]
+
+
+def test_prepare_media_path_returns_original_when_injection_is_disabled(tmp_path) -> None:
+    media = tmp_path / "sample.mp4"
+    media.write_bytes(b"not-an-mp4")
+    config = VlcPlayerConfig(inject_spherical_metadata=False)
+
+    assert _prepare_media_path_for_vlc(str(media), config) == str(media)
 
 
 def test_controller_updates_viewpoint_from_relative_ypr() -> None:

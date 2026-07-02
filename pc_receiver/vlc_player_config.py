@@ -9,6 +9,7 @@ from typing import Any
 DEFAULT_VLC_DIR = r"D:\Program Files\VideoLAN\VLC"
 DEFAULT_BLE_ADDRESS = "0C:8B:95:B4:7B:5A"
 DEFAULT_CONFIG_PATH = Path("config/local.vlc-player.json")
+DEFAULT_METADATA_CACHE_DIR = "config/vr-cache"
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,8 @@ class VlcPlayerConfig:
     gain_pitch: float = 1.0
     deadzone_degrees: float = 0.5
     field_of_view: float = 80.0
+    inject_spherical_metadata: bool = True
+    metadata_cache_dir: str = DEFAULT_METADATA_CACHE_DIR
     auto_connect_ble: bool = False
     auto_play: bool = False
 

@@ -12,6 +12,7 @@ v2 做：
 - GUI 内打开媒体文件、播放、暂停、停止。
 - 本地 JSON 配置，默认 VLC 路径 `D:\Program Files\VideoLAN\VLC`，默认 BLE 地址 `0C:8B:95:B4:7B:5A`。
 - 嵌入 libVLC 播放视频，并检查 VLC 目录、插件目录和 viewpoint API。
+- 默认生成带 equirectangular spherical metadata 的 MP4 缓存副本，匹配 PotPlayer 的 `Equirectangular` 菜单项。
 - 复用 v1 BLE 遥测链路和校准逻辑，把 M5 姿态映射到 VLC viewpoint。
 
 v2 不做：
@@ -28,7 +29,7 @@ v2 不做：
 | M1 | PRD/ECN/v2 plan | PRD-0002、ECN-0001、v2-index、v2-vlc-player 存在且有追溯矩阵 | `rg "REQ-0002" docs/prd docs/plan`; doc mojibake scan | done |
 | M2 | Config + viewpoint core | 配置读写、VLC 路径验证、姿态到 viewpoint 映射可测试 | `python -m pytest tests/test_vlc_player_config.py tests/test_vlc_viewpoint.py` | done |
 | M3 | VLC GUI player shell | `m5-vlc-player` GUI 入口、打开媒体、播放/暂停/停止控制器可测试 | `python -m pytest tests/test_vlc_player_controller.py tests/test_python_runtime_policy.py`; `uv run --extra player m5-vlc-player --help` | done |
-| M4 | BLE to VLC viewpoint integration | BLE snapshot 能更新 viewpoint；生产路径无 PotPlayer/鼠标模拟 | `python -m pytest`; production scan; libVLC probe; GUI smoke | done |
+| M4 | BLE to VLC viewpoint integration | BLE snapshot 能更新 viewpoint；生产路径无 PotPlayer/鼠标模拟；VLC 默认播放带 equirectangular metadata 的缓存副本 | `python -m pytest`; production scan; libVLC probe; GUI smoke; real media visual check | doing |
 
 ## Plan Index
 
@@ -40,13 +41,14 @@ v2 不做：
 |---|---|---|---|---|---|---|
 | REQ-0002-001 | PRD-0002 | v2-vlc-player M3 | script metadata + import tests | `uv run --extra player m5-vlc-player --help` | help exits 0 | done |
 | REQ-0002-002 | PRD-0002 | v2-vlc-player M2 | config load/save tests | app starts with defaults | `tests/test_vlc_player_config.py` passed | done |
-| REQ-0002-003 | PRD-0002 | v2-vlc-player M3 | fake VLC controller tests | manual GUI open media | `tests/test_vlc_player_controller.py` passed | done |
-| REQ-0002-004 | PRD-0002 | v2-vlc-player M4 | viewpoint mapper tests | BLE-to-viewpoint integration test | `tests/test_vlc_viewpoint.py` and controller relative-ypr test passed; libVLC probe passed | done |
+| REQ-0002-003 | PRD-0002 | v2-vlc-player M3 | fake VLC controller tests + MP4 metadata tests | manual GUI open media | controller tests passed; metadata cache copy path tested; human visual check pending | doing |
+| REQ-0002-004 | PRD-0002 | v2-vlc-player M4 | viewpoint mapper tests | BLE-to-viewpoint integration test | viewpoint tests and libVLC probe passed; metadata injection added by ECN-0002 | doing |
 | REQ-0002-005 | PRD-0002 | v2-vlc-player M2/M3 | VLC validation tests | status/error display path | `validate_vlc_dir` tests passed; README documents codecs | done |
 
 ## ECN Index
 
 - [ECN-0001](../ecn/ECN-0001-potplayer-to-vlc-player.md): Replace PotPlayer target with embedded VLC player.
+- [ECN-0002](../ecn/ECN-0002-force-equirectangular-projection.md): Inject Equirectangular metadata for VLC for local 2:1 VR files without spherical metadata.
 
 ## DoD Hardness Gate
 
@@ -55,7 +57,7 @@ v2 不做：
 - VLC probe verifies `D:\Program Files\VideoLAN\VLC\libvlc.dll` loads and exports `libvlc_video_update_viewpoint`.
 - Production scan over `pc_receiver pyproject.toml` has no `SendInput`, `SetCursorPos`, `pyautogui`, `PotPlayer` control implementation.
 - `.gitignore` ignores `config/local.*.json`.
-- README documents VLC 3.x requirement and codec responsibility.
+- README documents VLC 3.x requirement, codec responsibility, and spherical metadata cache behavior.
 
 ## Doc QA Gate
 
@@ -74,7 +76,7 @@ v2 不做：
 
 ## Difference List
 
-- v2 live video playback with an actual 360 file may require a user-selected media sample; automated tests will cover control contracts and libVLC API availability.
+- Human visual confirmation is still required on the real sample after ECN-0002 because automated tests can verify MP4 metadata injection but cannot prove the on-screen 360 projection looks correct.
 
 ## Implementation Evidence - 2026-07-02
 
@@ -85,23 +87,26 @@ v2 不做：
 - `.gitignore` ignores `config/local.*.json`.
 - GUI smoke: `m5-vlc-player --config config/local.vlc-player-smoke.json` stayed alive for 4 seconds and was stopped.
 - Production scan over `pc_receiver pyproject.toml` found no `SendInput`, `SetCursorPos`, `pyautogui`, `PotPlayer`, or `mouse_event` control path.
+- Real media probe before ECN-0002: `E:\BaiduNetdiskDownload\新井リマ-真好的VR片啊-SAVR-906_2_8k.mp4` is HEVC 8192x4096, no spherical metadata in ffprobe output, and VLC auto-detection treated it as a flat 2:1 frame.
+- ECN-0002 mitigation: the player now creates or reuses a cached MP4 copy with Google spherical metadata declaring equirectangular projection before handing media to VLC.
 
 ## Tashan Review - v2 / VLC Player
 
 - reviewer_context: same-model
 - round: 1
 - cost_profile: standard
-- verdict: pass
-- blocker_count: 0
+- verdict: blocked
+- blocker_count: 1
 - major_count: 0
 - stuck_signatures: none
 - regression_signatures: none
-- commands_checked: `python -m pytest`; `uv run --extra player m5-vlc-player --help`; libVLC viewpoint probe; GUI smoke; production forbidden-control scan; mojibake/NUL scan
-- residual_risks: actual 360 media playback quality depends on VLC codec support and the user-selected media file; live BLE-to-VLC visual behavior still benefits from a real video sample and human tuning.
+- commands_checked: `python -m pytest`; `uv run --extra player m5-vlc-player --help`; libVLC viewpoint probe; GUI smoke; production forbidden-control scan; mojibake/NUL scan; ffprobe real media probe; MP4 metadata injection tests
+- residual_risks: automated tests verify metadata injection and chunk offset repair, but human visual confirmation on the real sample is still required before M4 can be called done.
 
 ### Findings
 
 | severity | signature | evidence | disposition |
 |---|---|---|---|
+| BLOCKER | visual-e2e::real-media::human-confirmation-pending | ffprobe shows 8192x4096 HEVC with no spherical metadata; ECN-0002 adds spherical metadata cache generation, but the updated GUI has not yet been visually confirmed on the real sample | requires user-side visual check in the GUI |
 | NOTE | codec::vlc::media-dependent | VLC/libVLC owns codec support; app does not bundle codecs | documented in README |
 | NOTE | live-tuning::viewpoint::gain-deadzone | Gain/FOV/deadzone defaults are conservative and may need user tuning with a real 360 file | exposed in GUI config fields |

@@ -19,6 +19,7 @@ Do:
 - Add `player` optional dependency group containing `bleak` and `python-vlc`.
 - Add local JSON config loader/saver.
 - Add VLC binding/adapter and viewpoint mapper.
+- Create a cached MP4 copy with equirectangular spherical metadata by default for VLC playback.
 - Add tkinter GUI player with open media, play/pause/stop, connect BLE, calibrate, save config.
 - Add tests for config, viewpoint mapping, controller behavior, script metadata, and no mouse-control regression.
 
@@ -34,6 +35,7 @@ Do not:
 - `python -m pytest` passes.
 - `uv run --extra player m5-vlc-player --help` exits 0.
 - `python -c` VLC probe loads local `libvlc.dll` and confirms `libvlc_video_update_viewpoint`.
+- MP4 metadata tests prove spherical UUID injection, equirectangular XML, cache reuse, and chunk offset repair.
 - `rg -n "SendInput|SetCursorPos|pyautogui|PotPlayer" pc_receiver pyproject.toml` has no production-control hits.
 - `config/local.vlc-player.json` is ignored by git and created only at runtime.
 
@@ -57,11 +59,13 @@ Do not:
 2. Green: implement config and viewpoint mapper.
 3. Red: write VLC adapter/controller tests with fakes.
 4. Green: implement VLC backend abstraction and controller.
-5. Red: extend script metadata tests for `m5-vlc-player`.
-6. Green: implement tkinter app shell and script entry.
-7. E2E: run full tests, `m5-vlc-player --help`, and local libVLC probe.
-8. Review Loop: verify traceability, no PotPlayer/mouse-control path, docs updated, no mojibake.
-9. Ship: commit, push, send completion notification only when all blockers are closed.
+5. Red: add MP4 metadata injection, cache, and config tests for Equirectangular playback.
+6. Green: inject spherical metadata into a cached MP4 copy by default and expose the config checkbox.
+7. Red: extend script metadata tests for `m5-vlc-player`.
+8. Green: implement tkinter app shell and script entry.
+9. E2E: run full tests, `m5-vlc-player --help`, local libVLC probe, and human visual check on the real sample.
+10. Review Loop: verify traceability, no PotPlayer/mouse-control path, docs updated, no mojibake.
+11. Ship: commit, push, send completion notification only when all blockers are closed.
 
 ## Risks
 
@@ -69,4 +73,3 @@ Do not:
 - **Tk/VLC embedding on Windows**: use `Frame.winfo_id()` with `MediaPlayer.set_hwnd`.
 - **python-vlc load path**: set `PYTHON_VLC_LIB_PATH`, `VLC_PLUGIN_PATH`, and `os.add_dll_directory(vlc_dir)` before importing `vlc`.
 - **BLE/live dependency**: reuse v1 Python 3.13 pin and `bleak` dependency.
-

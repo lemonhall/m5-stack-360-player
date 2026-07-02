@@ -58,6 +58,8 @@ config/local.vlc-player.json
 
 The default VLC directory is `D:\Program Files\VideoLAN\VLC`. VLC 3.x must be installed locally. Codec support is provided by VLC/libVLC itself; this project does not install codecs or transcode video.
 
+The VLC player defaults to preparing a cached MP4 copy with Google spherical metadata for local 2:1 VR files that PotPlayer plays with its `Equirectangular` 360 menu item. VLC then opens the cached copy so its normal 360 renderer and viewpoint API can work even when the original MP4 does not carry spherical metadata.
+
 ## v1 Boundary
 
 v1 does not control PotPlayer, does not move the mouse, and does not call Windows window-control APIs. The visualizer is a diagnostic PC preview only.
