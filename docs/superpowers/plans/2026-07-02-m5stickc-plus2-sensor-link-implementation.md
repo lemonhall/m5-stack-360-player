@@ -103,7 +103,7 @@ Expected: exit code 0 if dependencies resolve.
 - [ ] **Step 1: Run verification**
 
 Run: `uv run pytest`
-Run: `rg --text -n "锛|€|俙|�|\\?\\?\\?|\\x00" .`
+Run suspicious mojibake/NUL scan over the repository.
 Run: `rg -n "PotPlayer|mouse_event|SendInput|pyautogui|win32gui|win32api" .`
 
 - [ ] **Step 2: Record review and ship status**

@@ -25,10 +25,10 @@ v1 不做：
 
 | Milestone | Scope | DoD | Verification | Status |
 |---|---|---|---|---|
-| M1 | 找到并导入官方 IMU/cube 示例 | 有来源记录；工程能构建；屏幕可视化入口保留 | `pio run` 或 Arduino CLI 构建命令 exit code 0；来源记录文件存在 | todo |
-| M2 | 固件 BLE JSON 遥测 | 遥测包含 `seq/ms/acc/gyro/btn` 和 `ypr` 或 `quat`；默认频率约 30 Hz 且可配置 | 固件测试或串口/BLE 抓包样例；JSON 可解析 | todo |
-| M3 | PC 接收、显示、日志、校准 | PC 程序能接收模拟或真实遥测；按钮事件更新中心姿态；JSONL 每行可解析 | `pytest` 全绿；模拟 BLE E2E 全绿 | todo |
-| M4 | 真实 M5 硬件链路验收 | M5 屏幕 cube 正常；PC 通过 BLE 收包；按主按钮后相对姿态归零附近 | 真实运行记录、JSONL 样例、验收日志 | todo |
+| M1 | 找到并导入官方 IMU/cube 示例 | 有来源记录；工程能构建；屏幕可视化入口保留 | `docs/hardware/m5stickc-plus2-example-source.md` 存在；`pio run` exit code 0 | done |
+| M2 | 固件 BLE JSON 遥测 | 遥测包含 `seq/ms/acc/gyro/btn` 和 `ypr` 或 `quat`；默认频率约 30 Hz 且可配置 | `uv run --no-sync pytest tests/test_firmware_static.py` 7 passed；串口 JSON 样例可解析 | done |
+| M3 | PC 接收、显示、日志、校准 | PC 程序能接收模拟或真实遥测；按钮事件更新中心姿态；JSONL 每行可解析 | `uv run --no-sync pytest` 19 passed；模拟 BLE flow 通过 | done |
+| M4 | 真实 M5 硬件链路验收 | M5 屏幕可视化正常；PC 通过 BLE 收包；按主按钮后相对姿态归零附近 | 固件已上传 COM5；串口 JSON 已验证；真实 BLE GATT 接收未验证 | blocked |
 
 ## Plan Index
 
@@ -38,14 +38,14 @@ v1 不做：
 
 | Req ID | PRD | v1 Plan | Unit/Integration | E2E/Hardware | Evidence | Status |
 |---|---|---|---|---|---|---|
-| REQ-0001-001 | PRD-0001 | v1-sensor-link M1 | 构建检查 | M4 硬件验收 | pending | todo |
-| REQ-0001-002 | PRD-0001 | v1-sensor-link M2 | 遥测字段测试 | M4 JSONL 样例 | pending | todo |
-| REQ-0001-003 | PRD-0001 | v1-sensor-link M2/M3 | BLE adapter 测试 | M4 BLE 连接验收 | pending | todo |
-| REQ-0001-004 | PRD-0001 | v1-sensor-link M2/M3 | JSON parser 测试 | M3 模拟 E2E | pending | todo |
-| REQ-0001-005 | PRD-0001 | v1-sensor-link M2 | 频率配置测试 | M4 包间隔统计 | pending | todo |
-| REQ-0001-006 | PRD-0001 | v1-sensor-link M3 | 校准状态测试 | M4 主按钮验收 | pending | todo |
-| REQ-0001-007 | PRD-0001 | v1-sensor-link M3 | JSONL writer 测试 | M3 模拟 E2E | pending | todo |
-| REQ-0001-008 | PRD-0001 | v1-sensor-link M3/M4 | PotPlayer 禁入扫描 | M4 验收记录 | pending | todo |
+| REQ-0001-001 | PRD-0001 | v1-sensor-link M1 | 构建检查 | COM5 上传 | official source doc + `pio run` success | done |
+| REQ-0001-002 | PRD-0001 | v1-sensor-link M2 | 遥测字段测试 | COM5 serial JSON | 10 JSON lines captured from COM5 | done |
+| REQ-0001-003 | PRD-0001 | v1-sensor-link M2/M3 | BLE adapter boundary | BLE GATT live | firmware/service implemented; `bleak` install timed out | blocked |
+| REQ-0001-004 | PRD-0001 | v1-sensor-link M2/M3 | JSON parser 测试 | M3 模拟 E2E | `uv run --no-sync pytest` 19 passed | done |
+| REQ-0001-005 | PRD-0001 | v1-sensor-link M2 | 频率配置测试 | serial interval sample | `TELEMETRY_HZ = 30`; serial `ms` increments around 36 ms | done |
+| REQ-0001-006 | PRD-0001 | v1-sensor-link M3 | 校准状态测试 | M4 主按钮验收 | unit tests pass; real button BLE event not verified | partial |
+| REQ-0001-007 | PRD-0001 | v1-sensor-link M3 | JSONL writer 测试 | M3 模拟 E2E | JSONL writer + simulated flow tests pass | done |
+| REQ-0001-008 | PRD-0001 | v1-sensor-link M3/M4 | PotPlayer 禁入扫描 | production path scan | production path scan no hits | done |
 
 ## ECN Index
 
@@ -101,6 +101,36 @@ v1 不做：
 
 ## Ship Record
 
-- local_commit: created locally in git
+- local_commit: implementation branch pending commit at time of this record
 - push_status: no_remote
-- push_note: `git push` failed because no push destination is configured; configure a remote before pushing.
+- push_note: repository still has no configured push destination; configure a remote before pushing.
+
+## Implementation Evidence - 2026-07-02
+
+- `uv run --no-sync pytest`: 19 passed.
+- `pio run`: success, firmware size RAM 13.0%, Flash 97.8%.
+- `pio run -t upload --upload-port COM5`: success; device chip `ESP32-PICO-V3-02`, MAC `0c:8b:95:b4:7b:58`.
+- COM5 serial sample after upload emitted JSON with `seq/ms/ypr/acc/gyro/btn`.
+- `rg` suspicious mojibake/NUL scan: no hits after removing self-matching command text.
+- Production path PotPlayer/control scan over `pc_receiver firmware platformio.ini pyproject.toml`: no hits.
+- BLE live dependency check: `uv run --extra ble`, `uv pip install bleak`, and pip install via `.venv` timed out; true PC BLE GATT receive remains blocked by Python BLE dependency installation.
+
+## Tashan Review - v1 / Implementation
+
+- reviewer_context: same-model
+- round: 1
+- cost_profile: standard
+- verdict: blocked
+- blocker_count: 1
+- major_count: 0
+- stuck_signatures: none
+- regression_signatures: none
+- commands_checked: `uv run --no-sync pytest`; `pio run`; `pio run -t upload --upload-port COM5`; serial COM5 read; production path control scan; mojibake scan
+- residual_risks: true PC BLE GATT receive has not been verified because `bleak` installation/sync timed out.
+
+### Findings
+
+| severity | signature | evidence | disposition |
+|---|---|---|---|
+| BLOCKER | ble-live::REQ-0001-003::bleak-install-timeout | `uv run --extra ble`, `uv pip install bleak`, and pip install timed out | carry forward before declaring M4/v1 fully done |
+| NOTE | firmware::button-update::m5-update-crash | serial captured Guru Meditation at `main.cpp:144`; addr2line mapped crash to `StickCP2.update()` | fixed by raw GPIO37 edge read and regression static test |
