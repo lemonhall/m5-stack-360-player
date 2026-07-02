@@ -20,7 +20,7 @@ from pc_receiver.vlc_player_config import DEFAULT_CONFIG_PATH, VlcPlayerConfig, 
 from pc_receiver.vlc_viewpoint import ViewpointSettings, map_ypr_to_viewpoint
 
 
-MessageKind = Literal["status", "pose", "error"]
+MessageKind = Literal["status", "pose", "error", "media_ready", "media_prepare_error"]
 
 
 class PlayerMessage:
@@ -31,11 +31,15 @@ class PlayerMessage:
         text: str = "",
         ypr: Vector3 | None = None,
         center_request: bool = False,
+        media_path: str = "",
+        vlc_media_path: str = "",
     ) -> None:
         self.kind = kind
         self.text = text
         self.ypr = ypr
         self.center_request = center_request
+        self.media_path = media_path
+        self.vlc_media_path = vlc_media_path
 
 
 class VlcPlayerController:
@@ -83,6 +87,7 @@ class VlcPlayerWindow:
         self.messages: Queue[PlayerMessage] = Queue()
         self.stop_event = Event()
         self.ble_thread: Thread | None = None
+        self.media_prepare_thread: Thread | None = None
         self.backend: LibVlcBackend | None = None
         self.controller: VlcPlayerController | None = None
         self.center_ypr: Vector3 | None = None
@@ -180,17 +185,14 @@ class VlcPlayerWindow:
             return
         self.config = self._config_from_fields(last_media=media_path)
         self.controller.config = self.config
-        try:
-            vlc_media_path = _prepare_media_path_for_vlc(media_path, self.config)
-        except Exception as exc:
-            messagebox.showerror("media prepare failed", str(exc))
-            self.status_var.set(f"media prepare error: {exc}")
-            return
-        self.controller.open_media(media_path, vlc_media_path=vlc_media_path)
         self.media_var.set(media_path)
         save_config(self.config, self.config_path)
-        suffix = " via spherical cache" if vlc_media_path != media_path else ""
-        self.status_var.set(f"opened {Path(media_path).name}{suffix}")
+        self.status_var.set(f"preparing {Path(media_path).name}")
+        self.media_prepare_thread = _start_media_prepare_thread(
+            media_path,
+            self.config,
+            self.messages,
+        )
 
     def play(self) -> None:
         if self.controller is not None:
@@ -255,6 +257,11 @@ class VlcPlayerWindow:
             self.status_var.set(message.text)
         elif message.kind == "error":
             self.status_var.set(f"BLE error: {message.text}")
+        elif message.kind == "media_prepare_error":
+            messagebox.showerror("media prepare failed", message.text)
+            self.status_var.set(f"media prepare error: {message.text}")
+        elif message.kind == "media_ready":
+            self._open_prepared_media(message.media_path, message.vlc_media_path)
         elif message.kind == "pose" and message.ypr is not None:
             self.latest_ypr = message.ypr
             if message.center_request or self.center_ypr is None:
@@ -267,6 +274,13 @@ class VlcPlayerWindow:
                 self.config = self._config_from_fields(last_media=self.media_var.get())
                 self.controller.config = self.config
                 self.controller.update_pose(relative)
+
+    def _open_prepared_media(self, media_path: str, vlc_media_path: str) -> None:
+        if self.controller is None:
+            return
+        self.controller.open_media(media_path, vlc_media_path=vlc_media_path)
+        suffix = " via spherical cache" if vlc_media_path != media_path else ""
+        self.status_var.set(f"opened {Path(media_path).name}{suffix}")
 
     def _config_from_fields(self, *, last_media: str | None = None) -> VlcPlayerConfig:
         return VlcPlayerConfig(
@@ -318,6 +332,26 @@ def _start_ble_thread(
         asyncio.run(_receive_loop(address, characteristic_uuid, messages, stop_event))
 
     thread = Thread(target=target, name="m5-vlc-player-ble", daemon=True)
+    thread.start()
+    return thread
+
+
+def _start_media_prepare_thread(
+    media_path: str,
+    config: VlcPlayerConfig,
+    messages: Queue[PlayerMessage],
+) -> Thread:
+    def target() -> None:
+        try:
+            vlc_media_path = _prepare_media_path_for_vlc(media_path, config)
+        except Exception as exc:
+            messages.put(PlayerMessage("media_prepare_error", text=str(exc)))
+            return
+        messages.put(
+            PlayerMessage("media_ready", media_path=media_path, vlc_media_path=vlc_media_path)
+        )
+
+    thread = Thread(target=target, name="m5-vlc-player-media-prepare", daemon=True)
     thread.start()
     return thread
 

@@ -5,7 +5,15 @@ from pathlib import Path
 import pytest
 
 from pc_receiver.vlc_backend import validate_vlc_dir
-from pc_receiver.vlc_player_app import VlcPlayerController, _prepare_media_path_for_vlc, _relative_ypr
+from queue import Queue
+
+from pc_receiver.vlc_player_app import (
+    PlayerMessage,
+    VlcPlayerController,
+    _prepare_media_path_for_vlc,
+    _relative_ypr,
+    _start_media_prepare_thread,
+)
 from pc_receiver.vlc_player_config import VlcPlayerConfig
 from pc_receiver.vlc_viewpoint import VlcViewpoint
 
@@ -73,6 +81,21 @@ def test_prepare_media_path_returns_original_when_injection_is_disabled(tmp_path
     config = VlcPlayerConfig(inject_spherical_metadata=False)
 
     assert _prepare_media_path_for_vlc(str(media), config) == str(media)
+
+
+def test_media_prepare_thread_posts_ready_message_without_opening_on_caller_thread(tmp_path) -> None:
+    media = tmp_path / "sample.mp4"
+    media.write_bytes(b"not-an-mp4")
+    messages: Queue[PlayerMessage] = Queue()
+    config = VlcPlayerConfig(inject_spherical_metadata=False)
+
+    thread = _start_media_prepare_thread(str(media), config, messages)
+    thread.join(timeout=2)
+
+    message = messages.get_nowait()
+    assert message.kind == "media_ready"
+    assert message.media_path == str(media)
+    assert message.vlc_media_path == str(media)
 
 
 def test_controller_updates_viewpoint_from_relative_ypr() -> None:
