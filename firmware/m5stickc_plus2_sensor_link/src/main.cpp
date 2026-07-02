@@ -24,6 +24,7 @@ static float yawDeg = 0.0f;
 static float pitchDeg = 0.0f;
 static float rollDeg = 0.0f;
 static bool lastButtonPressed = false;
+static bool centerButtonPending = false;
 
 class ServerCallbacks : public BLEServerCallbacks {
    public:
@@ -131,7 +132,7 @@ static void notifyTelemetry(const String& json) {
 }
 
 static bool readMainButtonClicked() {
-    const bool pressed = digitalRead(MAIN_BUTTON_PIN) == HIGH;
+    const bool pressed = digitalRead(MAIN_BUTTON_PIN) == LOW;
     const bool clicked = pressed && !lastButtonPressed;
     lastButtonPressed = pressed;
     return clicked;
@@ -141,7 +142,7 @@ void setup() {
     Serial.begin(115200);
     auto cfg = M5.config();
     StickCP2.begin(cfg);
-    pinMode(MAIN_BUTTON_PIN, INPUT);
+    pinMode(MAIN_BUTTON_PIN, INPUT_PULLUP);
     StickCP2.Display.setRotation(1);
     StickCP2.Display.setTextColor(GREEN);
     StickCP2.Display.setTextDatum(top_left);
@@ -151,7 +152,9 @@ void setup() {
 }
 
 void loop() {
-    const bool buttonPressed = readMainButtonClicked();
+    if (readMainButtonClicked()) {
+        centerButtonPending = true;
+    }
     const uint32_t nowMs = millis();
 
     const auto imuUpdate = StickCP2.Imu.update();
@@ -165,9 +168,11 @@ void loop() {
 
     if (nowMs - lastTelemetryMs >= TELEMETRY_INTERVAL_MS) {
         lastTelemetryMs = nowMs;
-        const String json = buildTelemetryJson(data, buttonPressed);
+        const bool centerRequest = centerButtonPending;
+        centerButtonPending = false;
+        const String json = buildTelemetryJson(data, centerRequest);
         Serial.println(json);
         notifyTelemetry(json);
-        drawTelemetry(data, buttonPressed);
+        drawTelemetry(data, centerRequest);
     }
 }

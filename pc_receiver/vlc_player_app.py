@@ -12,6 +12,7 @@ from tkinter import filedialog, messagebox
 from typing import Literal
 
 from pc_receiver.app import DEFAULT_CHARACTERISTIC_UUID
+from pc_receiver.pose_control import PoseControlSettings, PoseController
 from pc_receiver.telemetry import TelemetryError, Vector3, parse_telemetry
 from pc_receiver.transport import iter_ble_notifications
 from pc_receiver.virtual_mp4_server import VirtualMp4Server
@@ -46,6 +47,7 @@ class VlcPlayerController:
     def __init__(self, backend: VlcBackend, config: VlcPlayerConfig) -> None:
         self.backend = backend
         self.config = config
+        self.pose_controller = _build_pose_controller(config)
 
     def attach_to_window(self, hwnd: int) -> None:
         self.backend.attach_to_window(hwnd)
@@ -67,8 +69,11 @@ class VlcPlayerController:
         self.backend.stop()
 
     def update_pose(self, relative_ypr: Vector3) -> None:
+        if self.pose_controller.settings != _pose_control_settings(self.config):
+            self.pose_controller = _build_pose_controller(self.config)
+        controlled_ypr = self.pose_controller.update(relative_ypr)
         viewpoint = map_ypr_to_viewpoint(
-            relative_ypr,
+            controlled_ypr,
             ViewpointSettings(
                 gain_yaw=self.config.gain_yaw,
                 gain_pitch=self.config.gain_pitch,
@@ -77,6 +82,10 @@ class VlcPlayerController:
             ),
         )
         self.backend.update_viewpoint(viewpoint)
+
+    def reset_pose_control(self) -> None:
+        self.pose_controller = _build_pose_controller(self.config)
+        self.pose_controller.reset()
 
 
 class VlcPlayerWindow:
@@ -105,6 +114,10 @@ class VlcPlayerWindow:
         self.gain_pitch_var = tk.StringVar(value=str(self.config.gain_pitch))
         self.deadzone_var = tk.StringVar(value=str(self.config.deadzone_degrees))
         self.fov_var = tk.StringVar(value=str(self.config.field_of_view))
+        self.max_yaw_var = tk.StringVar(value=str(self.config.max_yaw_degrees))
+        self.max_pitch_var = tk.StringVar(value=str(self.config.max_pitch_degrees))
+        self.smoothing_var = tk.StringVar(value=str(self.config.smoothing_alpha))
+        self.max_step_var = tk.StringVar(value=str(self.config.max_step_degrees))
         self.serve_metadata_var = tk.BooleanVar(value=self.config.serve_spherical_metadata)
         self.status_var = tk.StringVar(value="ready")
         self.pose_var = tk.StringVar(value="ypr=(0.0, 0.0, 0.0)")
@@ -133,6 +146,10 @@ class VlcPlayerWindow:
         self._entry(settings, "Pitch", self.gain_pitch_var, 5)
         self._entry(settings, "Deadzone", self.deadzone_var, 5)
         self._entry(settings, "FOV", self.fov_var, 5)
+        self._entry(settings, "MaxYaw", self.max_yaw_var, 5)
+        self._entry(settings, "MaxPitch", self.max_pitch_var, 5)
+        self._entry(settings, "Smooth", self.smoothing_var, 5)
+        self._entry(settings, "Step", self.max_step_var, 5)
         tk.Checkbutton(settings, text="360 metadata", variable=self.serve_metadata_var).pack(
             side=tk.LEFT, padx=(10, 2)
         )
@@ -228,6 +245,9 @@ class VlcPlayerWindow:
             self.status_var.set("cannot calibrate before first M5 packet")
             return
         self.center_ypr = self.latest_ypr
+        if self.controller is not None:
+            self.controller.reset_pose_control()
+            self.controller.update_pose((0.0, 0.0, 0.0))
         self.status_var.set("center calibrated")
 
     def save_settings(self) -> None:
@@ -266,6 +286,8 @@ class VlcPlayerWindow:
             self.latest_ypr = message.ypr
             if message.center_request or self.center_ypr is None:
                 self.center_ypr = message.ypr
+                if self.controller is not None:
+                    self.controller.reset_pose_control()
             relative = _relative_ypr(message.ypr, self.center_ypr)
             self.pose_var.set(
                 f"relative=({relative[0]:.1f}, {relative[1]:.1f}, {relative[2]:.1f})"
@@ -291,6 +313,10 @@ class VlcPlayerWindow:
             gain_pitch=float(self.gain_pitch_var.get()),
             deadzone_degrees=float(self.deadzone_var.get()),
             field_of_view=float(self.fov_var.get()),
+            max_yaw_degrees=float(self.max_yaw_var.get()),
+            max_pitch_degrees=float(self.max_pitch_var.get()),
+            smoothing_alpha=float(self.smoothing_var.get()),
+            max_step_degrees=float(self.max_step_var.get()),
             serve_spherical_metadata=bool(self.serve_metadata_var.get()),
             auto_connect_ble=False,
             auto_play=False,
@@ -354,6 +380,19 @@ def _start_media_prepare_thread(
     thread = Thread(target=target, name="m5-vlc-player-media-prepare", daemon=True)
     thread.start()
     return thread
+
+
+def _build_pose_controller(config: VlcPlayerConfig) -> PoseController:
+    return PoseController(_pose_control_settings(config))
+
+
+def _pose_control_settings(config: VlcPlayerConfig) -> PoseControlSettings:
+    return PoseControlSettings(
+        max_yaw_degrees=config.max_yaw_degrees,
+        max_pitch_degrees=config.max_pitch_degrees,
+        smoothing_alpha=config.smoothing_alpha,
+        max_step_degrees=config.max_step_degrees,
+    )
 
 
 def _relative_ypr(current: Vector3, center: Vector3 | None) -> Vector3:

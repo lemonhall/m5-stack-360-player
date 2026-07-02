@@ -16,10 +16,14 @@ class VlcPlayerConfig:
     vlc_dir: str = DEFAULT_VLC_DIR
     ble_address: str = DEFAULT_BLE_ADDRESS
     last_media: str = ""
-    gain_yaw: float = 1.0
-    gain_pitch: float = 1.0
-    deadzone_degrees: float = 0.5
+    gain_yaw: float = 0.75
+    gain_pitch: float = 0.75
+    deadzone_degrees: float = 1.0
     field_of_view: float = 80.0
+    max_yaw_degrees: float = 90.0
+    max_pitch_degrees: float = 45.0
+    smoothing_alpha: float = 0.25
+    max_step_degrees: float = 6.0
     serve_spherical_metadata: bool = True
     auto_connect_ble: bool = False
     auto_play: bool = False

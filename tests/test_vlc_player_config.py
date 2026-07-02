@@ -18,7 +18,13 @@ def test_load_config_missing_file_returns_defaults(tmp_path) -> None:
     assert config.ble_address == DEFAULT_BLE_ADDRESS
     assert config.last_media == ""
     assert config.field_of_view == 80.0
-    assert config.deadzone_degrees == 0.5
+    assert config.gain_yaw == 0.75
+    assert config.gain_pitch == 0.75
+    assert config.deadzone_degrees == 1.0
+    assert config.max_yaw_degrees == 90.0
+    assert config.max_pitch_degrees == 45.0
+    assert config.smoothing_alpha == 0.25
+    assert config.max_step_degrees == 6.0
     assert config.serve_spherical_metadata is True
 
 
@@ -45,6 +51,10 @@ def test_save_config_creates_parent_directory_and_round_trips(tmp_path) -> None:
         gain_pitch=0.8,
         deadzone_degrees=0.25,
         field_of_view=75.0,
+        max_yaw_degrees=80.0,
+        max_pitch_degrees=40.0,
+        smoothing_alpha=0.5,
+        max_step_degrees=4.0,
         serve_spherical_metadata=False,
         auto_connect_ble=True,
         auto_play=True,

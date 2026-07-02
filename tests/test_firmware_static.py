@@ -50,6 +50,9 @@ def test_firmware_avoids_m5_update_crash_path_for_button_input():
 
     assert "MAIN_BUTTON_PIN" in text
     assert "digitalRead(MAIN_BUTTON_PIN)" in text
+    assert "INPUT_PULLUP" in text
+    assert "digitalRead(MAIN_BUTTON_PIN) == LOW" in text
+    assert "centerButtonPending" in text
     assert "StickCP2.update()" not in text
 
 
