@@ -23,7 +23,7 @@ def test_load_config_missing_file_returns_defaults(tmp_path) -> None:
     assert config.deadzone_degrees == 1.0
     assert config.max_yaw_degrees == 90.0
     assert config.max_pitch_degrees == 45.0
-    assert config.front_yaw_degrees == 180.0
+    assert config.front_yaw_degrees == 90.0
     assert config.front_pitch_degrees == 0.0
     assert config.smoothing_alpha == 0.25
     assert config.max_step_degrees == 6.0

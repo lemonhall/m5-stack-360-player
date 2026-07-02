@@ -180,7 +180,7 @@ def test_controller_reset_pose_control_recenters_viewpoint() -> None:
     controller.reset_pose_control()
     controller.update_pose((0.0, 0.0, 0.0))
 
-    assert backend.viewpoint == VlcViewpoint(yaw=180.0, pitch=0.0, roll=0.0, field_of_view=80.0)
+    assert backend.viewpoint == VlcViewpoint(yaw=90.0, pitch=0.0, roll=0.0, field_of_view=80.0)
 
 
 def test_controller_playback_methods_delegate_to_backend() -> None:
