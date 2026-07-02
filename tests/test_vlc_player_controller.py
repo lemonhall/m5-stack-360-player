@@ -1,0 +1,80 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from pc_receiver.vlc_backend import validate_vlc_dir
+from pc_receiver.vlc_player_app import VlcPlayerController
+from pc_receiver.vlc_player_config import VlcPlayerConfig
+from pc_receiver.vlc_viewpoint import VlcViewpoint
+
+
+class FakeBackend:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, object | None]] = []
+        self.media_path: str | None = None
+        self.viewpoint: VlcViewpoint | None = None
+
+    def attach_to_window(self, hwnd: int) -> None:
+        self.calls.append(("attach", hwnd))
+
+    def open_media(self, media_path: str) -> None:
+        self.media_path = media_path
+        self.calls.append(("open", media_path))
+
+    def play(self) -> None:
+        self.calls.append(("play", None))
+
+    def pause(self) -> None:
+        self.calls.append(("pause", None))
+
+    def stop(self) -> None:
+        self.calls.append(("stop", None))
+
+    def update_viewpoint(self, viewpoint: VlcViewpoint) -> None:
+        self.viewpoint = viewpoint
+        self.calls.append(("viewpoint", viewpoint))
+
+
+def test_validate_vlc_dir_requires_expected_files(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="libvlc.dll"):
+        validate_vlc_dir(tmp_path)
+
+    (tmp_path / "libvlc.dll").write_text("", encoding="utf-8")
+    (tmp_path / "plugins").mkdir()
+
+    assert validate_vlc_dir(tmp_path) == tmp_path
+
+
+def test_controller_open_media_updates_config_and_starts_playback() -> None:
+    backend = FakeBackend()
+    controller = VlcPlayerController(backend, VlcPlayerConfig(auto_play=True))
+
+    updated = controller.open_media(r"D:\video\movie.mp4")
+
+    assert updated.last_media == r"D:\video\movie.mp4"
+    assert backend.calls == [("open", r"D:\video\movie.mp4"), ("play", None)]
+
+
+def test_controller_updates_viewpoint_from_relative_ypr() -> None:
+    backend = FakeBackend()
+    controller = VlcPlayerController(
+        backend,
+        VlcPlayerConfig(gain_yaw=2.0, gain_pitch=1.0, deadzone_degrees=0.1, field_of_view=70.0),
+    )
+
+    controller.update_pose((5.0, -3.0, 1.0))
+
+    assert backend.viewpoint == VlcViewpoint(yaw=-10.0, pitch=3.0, roll=1.0, field_of_view=70.0)
+
+
+def test_controller_playback_methods_delegate_to_backend() -> None:
+    backend = FakeBackend()
+    controller = VlcPlayerController(backend, VlcPlayerConfig())
+
+    controller.play()
+    controller.pause()
+    controller.stop()
+
+    assert backend.calls == [("play", None), ("pause", None), ("stop", None)]
