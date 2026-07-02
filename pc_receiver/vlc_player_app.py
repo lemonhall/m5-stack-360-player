@@ -54,6 +54,7 @@ class VlcPlayerController:
         self.backend = backend
         self.config = config
         self.pose_controller = _build_pose_controller(config)
+        self.pose_target: Vector3 | None = None
 
     def attach_to_window(self, hwnd: int) -> None:
         self.backend.attach_to_window(hwnd)
@@ -94,10 +95,15 @@ class VlcPlayerController:
             target_ms = min(length_ms, target_ms)
         self.backend.set_time_ms(max(0, int(target_ms)))
 
-    def update_pose(self, relative_ypr: Vector3) -> None:
+    def set_pose_target(self, relative_ypr: Vector3) -> None:
+        self.pose_target = relative_ypr
+
+    def render_pose_frame(self) -> None:
+        if self.pose_target is None:
+            return
         if self.pose_controller.settings != _pose_control_settings(self.config):
             self.pose_controller = _build_pose_controller(self.config)
-        controlled_ypr = self.pose_controller.update(relative_ypr)
+        controlled_ypr = self.pose_controller.update(self.pose_target)
         viewpoint = map_ypr_to_viewpoint(
             controlled_ypr,
             ViewpointSettings(
@@ -111,9 +117,14 @@ class VlcPlayerController:
         )
         self.backend.update_viewpoint(viewpoint)
 
+    def update_pose(self, relative_ypr: Vector3) -> None:
+        self.set_pose_target(relative_ypr)
+        self.render_pose_frame()
+
     def reset_pose_control(self) -> None:
         self.pose_controller = _build_pose_controller(self.config)
         self.pose_controller.reset()
+        self.pose_target = (0.0, 0.0, 0.0)
 
 
 class VlcPlayerWindow:
@@ -167,6 +178,7 @@ class VlcPlayerWindow:
         root.bind_all("<Right>", self.on_right_key)
         self._poll_messages()
         self._poll_playback()
+        self._poll_pose_control()
 
     def _build_layout(self) -> None:
         top = tk.Frame(self.root)
@@ -440,6 +452,12 @@ class VlcPlayerWindow:
         if not self.stop_event.is_set():
             self.root.after(500, self._poll_playback)
 
+    def _poll_pose_control(self) -> None:
+        if self.controller is not None:
+            self.controller.render_pose_frame()
+        if not self.stop_event.is_set():
+            self.root.after(16, self._poll_pose_control)
+
     def _refresh_playback_progress(self) -> None:
         if self.controller is None:
             return
@@ -480,7 +498,7 @@ class VlcPlayerWindow:
             )
             if self.controller is not None:
                 self.controller.config = self.config
-                self.controller.update_pose(relative)
+                self.controller.set_pose_target(relative)
 
     def _open_prepared_media(self, media_path: str, vlc_media_path: str) -> None:
         if self.controller is None:
