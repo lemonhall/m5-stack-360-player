@@ -38,12 +38,12 @@ Run BLE receiver after installing the optional BLE dependency:
 uv run --extra ble m5-telemetry --address <BLE_ADDRESS> --log logs/telemetry.jsonl
 ```
 
-If `uv run --extra ble` stalls in dependency sync, install `bleak` into the project virtual environment first, then use:
+Run the tkinter visualizer:
 
 ```powershell
-uv run --no-sync m5-telemetry --address <BLE_ADDRESS> --log logs/telemetry.jsonl
+uv run --extra ble m5-visualizer --address <BLE_ADDRESS>
 ```
 
 ## v1 Boundary
 
-v1 does not control PotPlayer, does not move the mouse, and does not call Windows window-control APIs.
+v1 does not control PotPlayer, does not move the mouse, and does not call Windows window-control APIs. The visualizer is a diagnostic PC preview only.

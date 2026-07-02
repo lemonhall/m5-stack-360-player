@@ -13,12 +13,13 @@ v1 做：
 - 通过 BLE GATT 通知发送 JSON 遥测包。
 - PC 端用 Python 接收、解析、实时显示、写 JSONL 日志。
 - PC 端处理 M5 主按钮事件，把当前姿态设为中心姿态。
+- PC 端提供 tkinter 诊断可视化窗口，把姿态显示为 3D 小棒。
 
 v1 不做：
 
 - 不控制 PotPlayer。
 - 不模拟鼠标拖拽。
-- 不做 GUI 或 3D PC 预览。
+- 不把诊断可视化升级为 PotPlayer 控制或鼠标控制。
 - 不把第一版协议做成二进制包。
 
 ## Milestones
@@ -46,6 +47,7 @@ v1 不做：
 | REQ-0001-006 | PRD-0001 | v1-sensor-link M3 | 校准状态测试 | M4 主按钮验收 | unit tests pass; real button BLE event not verified | partial |
 | REQ-0001-007 | PRD-0001 | v1-sensor-link M3 | JSONL writer 测试 | M3 模拟 E2E | JSONL writer + simulated flow tests pass | done |
 | REQ-0001-008 | PRD-0001 | v1-sensor-link M3/M4 | PotPlayer 禁入扫描 | production path scan | production path scan no hits | done |
+| REQ-0001-009 | PRD-0001 | tk-visualizer add-on | 3D projection tests | PC diagnostic visualizer | `python -m pytest tests\test_visualization.py`; `uv run --extra ble m5-visualizer --help` | done |
 
 ## ECN Index
 
@@ -115,6 +117,7 @@ v1 不做：
 - Production path PotPlayer/control scan over `pc_receiver firmware platformio.ini pyproject.toml`: no hits.
 - BLE live dependency check initially timed out because uv selected Python 3.14 for `.venv`, which caused Windows BLE `winrt-*` dependencies to enter build paths. Pinning project runtime to Python 3.13 fixed dependency installation.
 - BLE live receive verified with `M5HeadTracker` at `0C:8B:95:B4:7B:5A`; `uv run --extra ble m5-telemetry --address 0C:8B:95:B4:7B:5A --log logs\ble-live-uv-3.jsonl --max-packets 3` received packets `seq=64394..64396`.
+- PC diagnostic visualizer added as `m5-visualizer`; geometry covered by `tests\test_visualization.py`; command help verified with `uv run --extra ble m5-visualizer --help`.
 
 ## Tashan Review - v1 / Implementation
 
