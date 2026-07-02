@@ -1,0 +1,24 @@
+[project]
+name = "m5-stack-360-player"
+version = "0.1.0"
+description = "M5StickC Plus2 BLE telemetry receiver for 360 player head tracking experiments"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.optional-dependencies]
+ble = [
+    "bleak>=0.22.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+]
+
+[project.scripts]
+m5-telemetry = "pc_receiver.app:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
