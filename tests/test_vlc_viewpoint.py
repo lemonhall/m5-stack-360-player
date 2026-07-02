@@ -41,6 +41,21 @@ def test_map_ypr_to_viewpoint_applies_video_front_offset_after_head_motion() -> 
     assert left_and_up.pitch == -5.0
 
 
+def test_map_ypr_to_viewpoint_clamps_yaw_to_configured_view_bounds() -> None:
+    settings = ViewpointSettings(
+        gain_yaw=1.0,
+        front_yaw_degrees=90.0,
+        min_yaw_degrees=0.0,
+        max_yaw_degrees=180.0,
+    )
+
+    far_left = map_ypr_to_viewpoint((120.0, 0.0, 0.0), settings)
+    far_right = map_ypr_to_viewpoint((-120.0, 0.0, 0.0), settings)
+
+    assert far_left.yaw == 0.0
+    assert far_right.yaw == 180.0
+
+
 def test_map_ypr_to_viewpoint_clamps_pitch_and_fov() -> None:
     settings = ViewpointSettings(gain_pitch=2.0, field_of_view=200.0)
 

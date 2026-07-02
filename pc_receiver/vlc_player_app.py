@@ -113,6 +113,8 @@ class VlcPlayerController:
                 field_of_view=self.config.field_of_view,
                 front_yaw_degrees=self.config.front_yaw_degrees,
                 front_pitch_degrees=self.config.front_pitch_degrees,
+                min_yaw_degrees=0.0,
+                max_yaw_degrees=180.0,
             ),
         )
         self.backend.update_viewpoint(viewpoint)
@@ -619,8 +621,8 @@ def _relative_ypr(current: Vector3, center: Vector3 | None) -> Vector3:
         return current
     return (
         _wrap_degrees(current[0] - center[0]),
-        current[1] - center[1],
-        current[2] - center[2],
+        _wrap_degrees(current[1] - center[1]),
+        _wrap_degrees(current[2] - center[2]),
     )
 
 
