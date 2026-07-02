@@ -10,6 +10,10 @@ dependencies = []
 ble = [
     "bleak>=0.22.3",
 ]
+player = [
+    "bleak>=0.22.3",
+    "python-vlc>=3.0.21203",
+]
 
 [dependency-groups]
 dev = [
@@ -19,6 +23,7 @@ dev = [
 [project.scripts]
 m5-telemetry = "pc_receiver.app:main"
 m5-visualizer = "pc_receiver.visualizer_app:main"
+m5-vlc-player = "pc_receiver.vlc_player_app:main"
 
 [build-system]
 requires = ["setuptools>=69"]
