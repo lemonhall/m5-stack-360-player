@@ -1,117 +1,117 @@
-# M5StickC Plus2 Sensor Link Implementation Plan
+# M5StickC Plus2 传感器链路实现计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **给 agentic worker 的要求：**实现本计划时必须使用 `superpowers:subagent-driven-development`（推荐）或 `superpowers:executing-plans`，按任务逐项执行。步骤使用 checkbox（`- [ ]`）语法追踪。
 
-**Goal:** Build v1 sensor link: M5StickC Plus2 sends JSON IMU telemetry over BLE, and the Windows PC receiver parses, displays, logs, and calibrates it.
+**目标：**构建 v1 传感器链路：M5StickC Plus2 通过 BLE 发送 JSON IMU 遥测，Windows PC 接收端负责解析、显示、记录和校准。
 
-**Architecture:** PC code is a small Python package with parser, calibration state, JSONL recorder, BLE transport, and CLI modules. Firmware is a PlatformIO Arduino project based on official M5StickCPlus2 IMU APIs, with telemetry construction separated from BLE notification and display code.
+**架构：**PC 代码是一个小型 Python 包，包含 parser、calibration state、JSONL recorder、BLE transport 和 CLI 模块。固件是基于官方 M5StickCPlus2 IMU API 的 PlatformIO Arduino 工程，遥测构造与 BLE 通知、显示代码分离。
 
-**Tech Stack:** Python 3.13, `uv`, `pytest`, `bleak`, PlatformIO, Arduino ESP32, M5StickCPlus2/M5Unified.
+**技术栈：**Python 3.13、`uv`、`pytest`、`bleak`、PlatformIO、Arduino ESP32、M5StickCPlus2/M5Unified。
 
 ---
 
-### Task 1: Source Baseline
+### 任务 1：源码基线
 
-**Files:**
-- Create: `docs/hardware/m5stickc-plus2-example-source.md`
-- Create: `docs/superpowers/plans/2026-07-02-m5stickc-plus2-sensor-link-implementation.md`
+**文件：**
+- 创建：`docs/hardware/m5stickc-plus2-example-source.md`
+- 创建：`docs/superpowers/plans/2026-07-02-m5stickc-plus2-sensor-link-implementation.md`
 
-- [x] **Step 1: Record official source**
+- [x] **步骤 1：记录官方来源**
 
-Record official M5Stack source URLs, library version, and API observations.
+记录官方 M5Stack 源码 URL、库版本和 API 观察。
 
-- [x] **Step 2: Verify documentation files are readable**
+- [x] **步骤 2：验证文档文件可读**
 
-Run: `rg --files docs`
-Expected: lists PRD, v1 plan, design spec, source record, and this implementation plan.
+运行：`rg --files docs`
+预期：列出 PRD、v1 计划、设计规格、来源记录和本实现计划。
 
-### Task 2: PC Receiver Tests First
+### 任务 2：PC 接收端测试优先
 
-**Files:**
-- Create: `tests/test_telemetry.py`
-- Create: `tests/test_calibration.py`
-- Create: `tests/test_jsonl_recorder.py`
-- Create: `tests/test_simulated_ble_flow.py`
+**文件：**
+- 创建：`tests/test_telemetry.py`
+- 创建：`tests/test_calibration.py`
+- 创建：`tests/test_jsonl_recorder.py`
+- 创建：`tests/test_simulated_ble_flow.py`
 
-- [ ] **Step 1: Write failing tests**
+- [ ] **步骤 1：编写失败测试**
 
-Tests must cover valid telemetry, invalid JSON, missing fields, calibration center update, JSONL writing, and simulated notification flow.
+测试必须覆盖有效遥测、非法 JSON、缺失字段、校准中心更新、JSONL 写入和模拟通知流程。
 
-- [ ] **Step 2: Run red tests**
+- [ ] **步骤 2：运行红灯测试**
 
-Run: `uv run pytest`
-Expected: FAIL because `pc_receiver` package does not exist.
+运行：`uv run pytest`
+预期：失败，因为 `pc_receiver` 包尚不存在。
 
-### Task 3: PC Receiver Implementation
+### 任务 3：PC 接收端实现
 
-**Files:**
-- Create: `pyproject.toml`
-- Create: `pc_receiver/__init__.py`
-- Create: `pc_receiver/telemetry.py`
-- Create: `pc_receiver/calibration.py`
-- Create: `pc_receiver/recorder.py`
-- Create: `pc_receiver/transport.py`
-- Create: `pc_receiver/app.py`
+**文件：**
+- 创建：`pyproject.toml`
+- 创建：`pc_receiver/__init__.py`
+- 创建：`pc_receiver/telemetry.py`
+- 创建：`pc_receiver/calibration.py`
+- 创建：`pc_receiver/recorder.py`
+- 创建：`pc_receiver/transport.py`
+- 创建：`pc_receiver/app.py`
 
-- [ ] **Step 1: Implement minimal code**
+- [ ] **步骤 1：实现最小代码**
 
-Implement parser, validation, calibration state, JSONL recorder, simulated notification runner, and BLE transport boundary.
+实现 parser、validation、calibration state、JSONL recorder、模拟通知 runner 和 BLE transport 边界。
 
-- [ ] **Step 2: Run green tests**
+- [ ] **步骤 2：运行绿灯测试**
 
-Run: `uv run pytest`
-Expected: all tests pass.
+运行：`uv run pytest`
+预期：全部测试通过。
 
-### Task 4: Firmware Static Tests First
+### 任务 4：固件静态测试优先
 
-**Files:**
-- Create: `tests/test_firmware_static.py`
+**文件：**
+- 创建：`tests/test_firmware_static.py`
 
-- [ ] **Step 1: Write failing firmware checks**
+- [ ] **步骤 1：编写失败的固件检查**
 
-Tests must assert `platformio.ini` exists, firmware includes `M5StickCPlus2.h`, BLE notify code, JSON keys, frequency config, and no PotPlayer/Windows control strings.
+测试必须断言 `platformio.ini` 存在、固件包含 `M5StickCPlus2.h`、BLE notify 代码、JSON key、频率配置，且无 PotPlayer/Windows 控制字符串。
 
-- [ ] **Step 2: Run red firmware checks**
+- [ ] **步骤 2：运行红灯固件检查**
 
-Run: `uv run pytest tests/test_firmware_static.py`
-Expected: FAIL because firmware files do not exist.
+运行：`uv run pytest tests/test_firmware_static.py`
+预期：失败，因为固件文件尚不存在。
 
-### Task 5: Firmware Implementation
+### 任务 5：固件实现
 
-**Files:**
-- Create: `platformio.ini`
-- Create: `firmware/m5stickc_plus2_sensor_link/src/main.cpp`
+**文件：**
+- 创建：`platformio.ini`
+- 创建：`firmware/m5stickc_plus2_sensor_link/src/main.cpp`
 
-- [ ] **Step 1: Implement PlatformIO firmware**
+- [ ] **步骤 1：实现 PlatformIO 固件**
 
-Create an Arduino ESP32 project using official M5StickCPlus2 APIs. Preserve display telemetry visualization and add BLE JSON notifications.
+创建使用官方 M5StickCPlus2 API 的 Arduino ESP32 工程。保留屏幕遥测可视化，并添加 BLE JSON 通知。
 
-- [ ] **Step 2: Run static tests and build**
+- [ ] **步骤 2：运行静态测试和构建**
 
-Run: `uv run pytest tests/test_firmware_static.py`
-Expected: PASS.
+运行：`uv run pytest tests/test_firmware_static.py`
+预期：通过。
 
-Run: `pio run`
-Expected: exit code 0 if dependencies resolve.
+运行：`pio run`
+预期：依赖解析后 exit code 0。
 
-### Task 6: Final Verification
+### 任务 6：最终验证
 
-**Files:**
-- Modify: `docs/plan/v1-index.md`
-- Modify: `docs/plan/tashan-loop-log.md`
+**文件：**
+- 修改：`docs/plan/v1-index.md`
+- 修改：`docs/plan/tashan-loop-log.md`
 
-- [ ] **Step 1: Run verification**
+- [ ] **步骤 1：运行验证**
 
-Run: `uv run pytest`
-Run suspicious mojibake/NUL scan over the repository.
-Run: `rg -n "PotPlayer|mouse_event|SendInput|pyautogui|win32gui|win32api" .`
+运行：`uv run pytest`
+运行仓库可疑乱码/NUL 扫描。
+运行：`rg -n "PotPlayer|mouse_event|SendInput|pyautogui|win32gui|win32api" .`
 
-- [ ] **Step 2: Record review and ship status**
+- [ ] **步骤 2：记录评审和交付状态**
 
-Update v1 index with evidence, commit, and attempt push. If no remote exists, record `no_remote`.
+更新 v1 索引中的证据、commit 和 push 尝试。如果没有 remote，则记录 `no_remote`。
 
-## Self Review
+## 自检
 
-- Spec coverage: REQ-0001-001 through REQ-0001-008 are mapped to tasks.
-- Placeholder scan: no TBD/TODO placeholders.
-- Type consistency: PC parser emits `TelemetryPacket`; calibration consumes `TelemetryPacket`; recorder writes packet dicts.
+- 规格覆盖：REQ-0001-001 到 REQ-0001-008 均映射到任务。
+- 占位符扫描：无 TBD/TODO 占位符。
+- 类型一致性：PC parser 输出 `TelemetryPacket`；calibration 消费 `TelemetryPacket`；recorder 写 packet dict。

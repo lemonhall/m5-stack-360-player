@@ -1,27 +1,27 @@
-# M5StickC Plus2 Official Example Source
+# M5StickC Plus2 官方示例来源记录
 
-Date: 2026-07-02
+日期：2026-07-02
 
-## Official Sources Checked
+## 已检查的官方来源
 
-- M5StickCPlus2 official IMU example:
+- M5StickCPlus2 官方 IMU 示例：
   `https://github.com/m5stack/M5StickCPlus2/blob/master/examples/Basic/imu/imu.ino`
-- M5StickCPlus2 library metadata:
+- M5StickCPlus2 库元数据：
   `https://github.com/m5stack/M5StickCPlus2/blob/master/library.properties`
-- M5Unified IMU example:
+- M5Unified IMU 示例：
   `https://github.com/m5stack/M5Unified/blob/master/examples/Basic/Imu/Imu.ino`
 
-## Findings
+## 结论
 
-- The M5StickCPlus2 official example uses `#include "M5StickCPlus2.h"`.
-- Setup calls `auto cfg = M5.config();` and `StickCP2.begin(cfg);`.
-- IMU data is read with `StickCP2.Imu.update()` and `StickCP2.Imu.getImuData()`.
-- Official Plus2 example exposes accelerometer and gyroscope fields directly.
-- The fetched Plus2 example does not expose a cube renderer or fused yaw/pitch/roll directly.
-- The M5Unified IMU example has a richer on-screen visualization and calibration flow, but it is not Plus2-specific cube rendering.
+- M5StickCPlus2 官方示例使用 `#include "M5StickCPlus2.h"`。
+- 初始化流程为 `auto cfg = M5.config();` 和 `StickCP2.begin(cfg);`。
+- IMU 数据通过 `StickCP2.Imu.update()` 和 `StickCP2.Imu.getImuData()` 读取。
+- Plus2 官方示例直接暴露加速度计和陀螺仪字段。
+- v1 获取到的 Plus2 示例没有直接暴露立方体渲染或融合后的 yaw/pitch/roll。
+- M5Unified IMU 示例有更丰富的屏幕可视化和校准流程，但不是 Plus2 专用立方体渲染示例。
 
-## v1 Decision
+## v1 决策
 
-v1 uses the official M5StickCPlus2 IMU API as the hardware baseline and keeps an on-device screen visualization of live IMU/pose values. Because the official Plus2 example fetched for v1 does not directly provide fused yaw/pitch/roll or cube output, v1 firmware adds a lightweight gyro-integrated orientation estimate for telemetry, while keeping raw accelerometer and gyroscope data in every packet.
+v1 以官方 M5StickCPlus2 IMU API 作为硬件基线，并保留设备屏幕上的实时 IMU/姿态数值可视化。由于 v1 获取到的 Plus2 官方示例没有直接提供融合后的 yaw/pitch/roll 或立方体输出，v1 固件新增了轻量的陀螺仪积分姿态估计用于遥测，同时每个遥测包仍保留原始加速度计和陀螺仪数据。
 
-If a later official cube-specific Plus2 example is found, it can replace the display section via ECN without changing the PC telemetry protocol.
+如果后续找到官方 Plus2 立方体专用示例，可以通过 ECN 替换显示部分，而不改变 PC 端遥测协议。

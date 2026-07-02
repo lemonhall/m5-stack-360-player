@@ -1,10 +1,10 @@
-# v1 Plan: Sensor Link
+# v1 计划：传感器链路
 
-## Goal
+## 目标
 
-交付 M5StickC Plus2 到 Windows PC 的第一版传感器数据链路：官方 IMU/cube 示例保留，M5 通过 BLE 发送 JSON 遥测，PC 端接收、实时显示、写 JSONL 日志，并支持主按钮零点校准。
+交付 M5StickC Plus2 到 Windows PC 的第一版传感器数据链路：保留官方 IMU/cube 示例，M5 通过 BLE 发送 JSON 遥测，PC 端接收、实时显示、写 JSONL 日志，并支持主按钮零点校准。
 
-## PRD Trace
+## PRD 追溯
 
 - REQ-0001-001
 - REQ-0001-002
@@ -15,7 +15,7 @@
 - REQ-0001-007
 - REQ-0001-008
 
-## Scope
+## 范围
 
 做：
 
@@ -33,7 +33,7 @@
 - 不做 PC 端 GUI。
 - 不承诺高于 60 Hz 的稳定发送。
 
-## Acceptance
+## 验收
 
 1. 固件工程可构建，构建命令 exit code 0。
 2. M5 屏幕姿态可视化入口保留，真实硬件验收记录说明 cube 或等价可视化正常。
@@ -46,7 +46,7 @@
 9. 真实硬件验收时能连接 BLE，连续收包不少于 60 秒，日志内有效包数量不低于期望频率的 80%。
 10. 反作弊：`rg -n "PotPlayer|mouse_event|SendInput|pyautogui|win32gui|win32api" .` 不得命中 v1 控制逻辑。
 
-## Files
+## 文件
 
 预计创建或修改：
 
@@ -56,9 +56,9 @@
 - `logs/`：运行时日志目录，实际日志应被 `.gitignore` 忽略。
 - `docs/hardware/`：真实 M5 验收记录和样例摘要。
 
-## Steps
+## 步骤
 
-### M1: 官方示例和工程基线
+### M1：官方示例和工程基线
 
 1. 查找 M5StickC Plus2 官方 IMU/cube 示例源码。
 2. 记录来源到 `docs/hardware/m5stickc-plus2-example-source.md`。
@@ -78,7 +78,7 @@ pio run
 arduino-cli compile <firmware-project>
 ```
 
-### M2: 固件遥测和 BLE 通知
+### M2：固件遥测和 BLE 通知
 
 1. 写遥测 JSON 构造测试或可编译检查。
 2. 运行到红，确认字段缺失时测试失败。
@@ -94,7 +94,7 @@ pio run
 
 并保留一条实际遥测样例，确认可被 JSON parser 解析。
 
-### M3: PC 接收端、日志和校准
+### M3：PC 接收端、日志和校准
 
 1. 写 Python 单元测试：JSON parser、校准状态、JSONL writer。
 2. 写模拟 BLE E2E：模拟通知数据驱动 receiver。
@@ -108,7 +108,7 @@ pio run
 uv run pytest
 ```
 
-### M4: 真实硬件验收
+### M4：真实硬件验收
 
 1. 烧录固件到 M5StickC Plus2。
 2. 运行 PC receiver 连接 M5。
@@ -123,7 +123,7 @@ uv run pytest
 rg -n "PotPlayer|mouse_event|SendInput|pyautogui|win32gui|win32api" .
 ```
 
-## Risks
+## 风险
 
 - 官方示例位置或库版本不匹配：M1 先记录来源和构建方式，不先写遥测。
 - BLE 在 Windows 上连接不稳定：transport 边界保持可替换，必要时通过 ECN 降级到串口或 USB。

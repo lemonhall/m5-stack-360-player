@@ -1,43 +1,43 @@
-# ECN-0002: Inject Equirectangular Metadata for VLC
+# ECN-0002：为 VLC 注入 Equirectangular 元数据
 
-## Basic Information
+## 基本信息
 
-- **ECN ID**: ECN-0002
-- **Related PRD**: PRD-0002
-- **Related Req IDs**: REQ-0002-002, REQ-0002-003, REQ-0002-004
-- **Discovery phase**: v2 real media verification
-- **Date**: 2026-07-02
+- **ECN 编号**：ECN-0002
+- **关联 PRD**：PRD-0002
+- **关联 Req ID**：REQ-0002-002、REQ-0002-003、REQ-0002-004
+- **发现阶段**：v2 真实媒体校验
+- **日期**：2026-07-02
 
-## Change Reason
+## 变更原因
 
-The real local VR files are 2:1 HEVC MP4 files that PotPlayer can play correctly when its 360 menu is set to `Equirectangular`. `ffprobe` shows the sample does not carry spherical metadata, so VLC auto-detection may render the frame as a normal flat video unless projection is forced.
+真实本地 VR 文件是 2:1 HEVC MP4。PotPlayer 在 360 菜单设置为 `Equirectangular` 后可以正确播放。`ffprobe` 显示样片没有携带 spherical metadata，因此 VLC 自动检测时可能把画面当作普通平面视频渲染，除非强制声明投影方式。
 
-The previous diagnosis that this required switching away from VLC was wrong. The target remains embedded VLC/libVLC.
+此前认为这需要放弃 VLC 的判断是错误的。目标仍然是内嵌 VLC/libVLC。
 
-## Change Content
+## 变更内容
 
-### Original Design
+### 原设计
 
-VLC was allowed to auto-detect whether a media file should use 360 projection.
+允许 VLC 自动检测媒体文件是否应使用 360 投影。
 
-### Superseded Design
+### 被替代设计
 
-The first implementation created or reused a cached MP4 copy with Google spherical metadata declaring equirectangular projection. This was invalid for the target media set because files are routinely 5-7 GB.
+第一版实现会创建或复用一份带 Google spherical metadata 的 MP4 缓存副本，用于声明 equirectangular 投影。但目标媒体通常是 5-7 GB，这种方式不可接受。
 
-### Current Design
+### 当前设计
 
-The VLC player serves a local virtual MP4 URL. The virtual file injects Google equirectangular metadata into the in-memory header and maps the media payload back to the original file using HTTP Range reads. This avoids creating a second 5-7 GB file while still letting VLC receive a metadata-bearing MP4 stream.
+VLC 播放器提供一个本地虚拟 MP4 URL。虚拟文件在内存头部注入 Google equirectangular metadata，并通过 HTTP Range 读取把媒体数据映射回原始文件。这样既避免生成第二份 5-7 GB 视频文件，也能让 VLC 收到带 metadata 的 MP4 流。
 
-## Impact
+## 影响范围
 
-- Affected Req IDs: REQ-0002-002, REQ-0002-003, REQ-0002-004
-- Affected v2 plan: `docs/plan/v2-index.md`, `docs/plan/v2-vlc-player.md`
-- Affected tests: `tests/test_virtual_mp4_server.py`, `tests/test_mp4_spherical_metadata.py`, `tests/test_vlc_player_config.py`, `tests/test_vlc_player_controller.py`
-- Affected code: `pc_receiver/virtual_mp4_server.py`, `pc_receiver/mp4_spherical_metadata.py`, `pc_receiver/vlc_player_config.py`, `pc_receiver/vlc_player_app.py`
+- 受影响 Req ID：REQ-0002-002、REQ-0002-003、REQ-0002-004
+- 受影响 v2 计划：`docs/plan/v2-index.md`、`docs/plan/v2-vlc-player.md`
+- 受影响测试：`tests/test_virtual_mp4_server.py`、`tests/test_mp4_spherical_metadata.py`、`tests/test_vlc_player_config.py`、`tests/test_vlc_player_controller.py`
+- 受影响代码：`pc_receiver/virtual_mp4_server.py`、`pc_receiver/mp4_spherical_metadata.py`、`pc_receiver/vlc_player_config.py`、`pc_receiver/vlc_player_app.py`
 
-## Disposition
+## 处置状态
 
-- [x] PRD updated
-- [x] v2 plan updated
-- [x] Tests updated
-- [x] README updated
+- [x] PRD 已更新
+- [x] v2 计划已更新
+- [x] 测试已更新
+- [x] README 已更新
