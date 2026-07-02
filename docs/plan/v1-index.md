@@ -101,9 +101,9 @@ v1 不做：
 
 ## Ship Record
 
-- local_commit: implementation branch pending commit at time of this record
-- push_status: no_remote
-- push_note: repository still has no configured push destination; configure a remote before pushing.
+- local_commit: `82e9264` implementation branch commit, merged as `7acb79d`
+- push_status: pushed
+- push_note: `git push origin master` succeeded on 2026-07-02.
 
 ## Implementation Evidence - 2026-07-02
 
