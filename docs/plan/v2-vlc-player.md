@@ -19,7 +19,7 @@ Do:
 - Add `player` optional dependency group containing `bleak` and `python-vlc`.
 - Add local JSON config loader/saver.
 - Add VLC binding/adapter and viewpoint mapper.
-- Create a cached MP4 copy with equirectangular spherical metadata by default for VLC playback.
+- Serve a local virtual MP4 URL with equirectangular spherical metadata for VLC playback without copying 5-7 GB media files.
 - Add tkinter GUI player with open media, play/pause/stop, connect BLE, calibrate, save config.
 - Add tests for config, viewpoint mapping, controller behavior, script metadata, and no mouse-control regression.
 
@@ -35,7 +35,7 @@ Do not:
 - `python -m pytest` passes.
 - `uv run --extra player m5-vlc-player --help` exits 0.
 - `python -c` VLC probe loads local `libvlc.dll` and confirms `libvlc_video_update_viewpoint`.
-- MP4 metadata tests prove spherical UUID injection, equirectangular XML, cache reuse, and chunk offset repair.
+- Virtual MP4 tests prove spherical UUID injection, equirectangular XML, Range serving, and chunk offset repair.
 - `rg -n "SendInput|SetCursorPos|pyautogui|PotPlayer" pc_receiver pyproject.toml` has no production-control hits.
 - `config/local.vlc-player.json` is ignored by git and created only at runtime.
 
@@ -59,8 +59,8 @@ Do not:
 2. Green: implement config and viewpoint mapper.
 3. Red: write VLC adapter/controller tests with fakes.
 4. Green: implement VLC backend abstraction and controller.
-5. Red: add MP4 metadata injection, cache, and config tests for Equirectangular playback.
-6. Green: inject spherical metadata into a cached MP4 copy by default and expose the config checkbox.
+5. Red: add virtual MP4 Range server, metadata, and config tests for Equirectangular playback.
+6. Green: serve virtual spherical metadata URL by default and expose the config checkbox.
 7. Red: extend script metadata tests for `m5-vlc-player`.
 8. Green: implement tkinter app shell and script entry.
 9. E2E: run full tests, `m5-vlc-player --help`, local libVLC probe, and human visual check on the real sample.

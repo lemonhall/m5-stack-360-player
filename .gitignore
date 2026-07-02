@@ -6,4 +6,3 @@ __pycache__/
 logs/
 *.egg-info/
 config/local.*.json
-config/vr-cache/

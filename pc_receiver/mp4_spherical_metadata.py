@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import hashlib
 from pathlib import Path
 import struct
 from typing import BinaryIO
@@ -56,20 +55,6 @@ def spherical_uuid_box() -> bytes:
     return struct.pack(">I4s", len(payload) + 8, b"uuid") + payload
 
 
-def ensure_equirectangular_metadata_copy(media_path: str | Path, cache_dir: str | Path) -> Path:
-    source = Path(media_path)
-    cache = Path(cache_dir)
-    cache.mkdir(parents=True, exist_ok=True)
-    output = cache / _cache_filename(source)
-    if output.exists():
-        return output
-
-    temp = output.with_suffix(output.suffix + ".tmp")
-    inject_equirectangular_metadata(source, temp)
-    temp.replace(output)
-    return output
-
-
 def inject_equirectangular_metadata(source: str | Path, output: str | Path) -> None:
     source_path = Path(source)
     output_path = Path(output)
@@ -92,14 +77,6 @@ def inject_equirectangular_metadata(source: str | Path, output: str | Path) -> N
         with output_path.open("wb") as dst:
             for atom in atoms:
                 _write_atom(src, dst, atom, chunk_offset_delta)
-
-
-def _cache_filename(source: Path) -> str:
-    stat = source.stat()
-    fingerprint = hashlib.sha1(
-        f"{source.resolve()}:{stat.st_size}:{stat.st_mtime_ns}".encode("utf-8")
-    ).hexdigest()[:16]
-    return f"{source.stem}.{fingerprint}.spherical{source.suffix}"
 
 
 def _parse_children(

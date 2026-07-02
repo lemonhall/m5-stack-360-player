@@ -35,4 +35,3 @@ def test_local_player_config_is_gitignored() -> None:
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
 
     assert "config/local.*.json" in gitignore
-    assert "config/vr-cache/" in gitignore

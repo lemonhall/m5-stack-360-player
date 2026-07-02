@@ -16,6 +16,7 @@ from pc_receiver.vlc_player_app import (
 )
 from pc_receiver.vlc_player_config import VlcPlayerConfig
 from pc_receiver.vlc_viewpoint import VlcViewpoint
+from pc_receiver.virtual_mp4_server import VirtualMp4Server
 
 
 class FakeBackend:
@@ -78,18 +79,36 @@ def test_controller_open_media_preserves_original_path_when_vlc_uses_prepared_co
 def test_prepare_media_path_returns_original_when_injection_is_disabled(tmp_path) -> None:
     media = tmp_path / "sample.mp4"
     media.write_bytes(b"not-an-mp4")
-    config = VlcPlayerConfig(inject_spherical_metadata=False)
+    config = VlcPlayerConfig(serve_spherical_metadata=False)
 
     assert _prepare_media_path_for_vlc(str(media), config) == str(media)
+
+
+def test_prepare_media_path_returns_virtual_http_url_when_metadata_is_enabled(tmp_path) -> None:
+    media = tmp_path / "sample.mp4"
+    media.write_bytes(
+        b"\x00\x00\x00\x0cftypisom"
+        b"\x00\x00\x00\x08moov"
+        b"\x00\x00\x00\x08mdat"
+    )
+    server = VirtualMp4Server()
+    try:
+        config = VlcPlayerConfig(serve_spherical_metadata=True)
+
+        url = _prepare_media_path_for_vlc(str(media), config, server)
+
+        assert url.startswith("http://127.0.0.1:")
+    finally:
+        server.stop()
 
 
 def test_media_prepare_thread_posts_ready_message_without_opening_on_caller_thread(tmp_path) -> None:
     media = tmp_path / "sample.mp4"
     media.write_bytes(b"not-an-mp4")
     messages: Queue[PlayerMessage] = Queue()
-    config = VlcPlayerConfig(inject_spherical_metadata=False)
+    config = VlcPlayerConfig(serve_spherical_metadata=False)
 
-    thread = _start_media_prepare_thread(str(media), config, messages)
+    thread = _start_media_prepare_thread(str(media), config, messages, VirtualMp4Server())
     thread.join(timeout=2)
 
     message = messages.get_nowait()

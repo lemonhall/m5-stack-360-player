@@ -20,16 +20,20 @@ The previous diagnosis that this required switching away from VLC was wrong. The
 
 VLC was allowed to auto-detect whether a media file should use 360 projection.
 
-### New Design
+### Superseded Design
 
-The VLC player defaults to creating or reusing a cached MP4 copy with Google spherical metadata declaring equirectangular projection. This is exposed as `inject_spherical_metadata` and `metadata_cache_dir` in `config/local.vlc-player.json`, plus a GUI checkbox, defaulting to enabled.
+The first implementation created or reused a cached MP4 copy with Google spherical metadata declaring equirectangular projection. This was invalid for the target media set because files are routinely 5-7 GB.
+
+### Current Design
+
+The VLC player serves a local virtual MP4 URL. The virtual file injects Google equirectangular metadata into the in-memory header and maps the media payload back to the original file using HTTP Range reads. This avoids creating a second 5-7 GB file while still letting VLC receive a metadata-bearing MP4 stream.
 
 ## Impact
 
 - Affected Req IDs: REQ-0002-002, REQ-0002-003, REQ-0002-004
 - Affected v2 plan: `docs/plan/v2-index.md`, `docs/plan/v2-vlc-player.md`
-- Affected tests: `tests/test_mp4_spherical_metadata.py`, `tests/test_vlc_player_config.py`, `tests/test_vlc_player_controller.py`
-- Affected code: `pc_receiver/mp4_spherical_metadata.py`, `pc_receiver/vlc_player_config.py`, `pc_receiver/vlc_player_app.py`
+- Affected tests: `tests/test_virtual_mp4_server.py`, `tests/test_mp4_spherical_metadata.py`, `tests/test_vlc_player_config.py`, `tests/test_vlc_player_controller.py`
+- Affected code: `pc_receiver/virtual_mp4_server.py`, `pc_receiver/mp4_spherical_metadata.py`, `pc_receiver/vlc_player_config.py`, `pc_receiver/vlc_player_app.py`
 
 ## Disposition
 

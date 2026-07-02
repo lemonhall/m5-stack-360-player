@@ -4,7 +4,6 @@ import json
 
 from pc_receiver.vlc_player_config import (
     DEFAULT_BLE_ADDRESS,
-    DEFAULT_METADATA_CACHE_DIR,
     DEFAULT_VLC_DIR,
     VlcPlayerConfig,
     load_config,
@@ -20,8 +19,7 @@ def test_load_config_missing_file_returns_defaults(tmp_path) -> None:
     assert config.last_media == ""
     assert config.field_of_view == 80.0
     assert config.deadzone_degrees == 0.5
-    assert config.inject_spherical_metadata is True
-    assert config.metadata_cache_dir == DEFAULT_METADATA_CACHE_DIR
+    assert config.serve_spherical_metadata is True
 
 
 def test_load_config_merges_partial_file_with_defaults(tmp_path) -> None:
@@ -34,7 +32,7 @@ def test_load_config_merges_partial_file_with_defaults(tmp_path) -> None:
     assert config.gain_yaw == 1.5
     assert config.vlc_dir == DEFAULT_VLC_DIR
     assert config.field_of_view == 80.0
-    assert config.inject_spherical_metadata is True
+    assert config.serve_spherical_metadata is True
 
 
 def test_save_config_creates_parent_directory_and_round_trips(tmp_path) -> None:
@@ -47,8 +45,7 @@ def test_save_config_creates_parent_directory_and_round_trips(tmp_path) -> None:
         gain_pitch=0.8,
         deadzone_degrees=0.25,
         field_of_view=75.0,
-        inject_spherical_metadata=False,
-        metadata_cache_dir=r"E:\vr-cache",
+        serve_spherical_metadata=False,
         auto_connect_ble=True,
         auto_play=True,
     )

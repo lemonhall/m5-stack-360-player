@@ -12,9 +12,9 @@ from tkinter import filedialog, messagebox
 from typing import Literal
 
 from pc_receiver.app import DEFAULT_CHARACTERISTIC_UUID
-from pc_receiver.mp4_spherical_metadata import ensure_equirectangular_metadata_copy
 from pc_receiver.telemetry import TelemetryError, Vector3, parse_telemetry
 from pc_receiver.transport import iter_ble_notifications
+from pc_receiver.virtual_mp4_server import VirtualMp4Server
 from pc_receiver.vlc_backend import LibVlcBackend, VlcBackend, validate_vlc_dir
 from pc_receiver.vlc_player_config import DEFAULT_CONFIG_PATH, VlcPlayerConfig, load_config, save_config
 from pc_receiver.vlc_viewpoint import ViewpointSettings, map_ypr_to_viewpoint
@@ -88,6 +88,7 @@ class VlcPlayerWindow:
         self.stop_event = Event()
         self.ble_thread: Thread | None = None
         self.media_prepare_thread: Thread | None = None
+        self.virtual_mp4_server = VirtualMp4Server()
         self.backend: LibVlcBackend | None = None
         self.controller: VlcPlayerController | None = None
         self.center_ypr: Vector3 | None = None
@@ -104,8 +105,7 @@ class VlcPlayerWindow:
         self.gain_pitch_var = tk.StringVar(value=str(self.config.gain_pitch))
         self.deadzone_var = tk.StringVar(value=str(self.config.deadzone_degrees))
         self.fov_var = tk.StringVar(value=str(self.config.field_of_view))
-        self.inject_metadata_var = tk.BooleanVar(value=self.config.inject_spherical_metadata)
-        self.metadata_cache_var = tk.StringVar(value=self.config.metadata_cache_dir)
+        self.serve_metadata_var = tk.BooleanVar(value=self.config.serve_spherical_metadata)
         self.status_var = tk.StringVar(value="ready")
         self.pose_var = tk.StringVar(value="ypr=(0.0, 0.0, 0.0)")
 
@@ -133,7 +133,7 @@ class VlcPlayerWindow:
         self._entry(settings, "Pitch", self.gain_pitch_var, 5)
         self._entry(settings, "Deadzone", self.deadzone_var, 5)
         self._entry(settings, "FOV", self.fov_var, 5)
-        tk.Checkbutton(settings, text="Inject 360", variable=self.inject_metadata_var).pack(
+        tk.Checkbutton(settings, text="360 metadata", variable=self.serve_metadata_var).pack(
             side=tk.LEFT, padx=(10, 2)
         )
 
@@ -141,8 +141,6 @@ class VlcPlayerWindow:
         media_row.pack(side=tk.TOP, fill=tk.X, padx=8, pady=4)
         tk.Label(media_row, text="媒体").pack(side=tk.LEFT)
         tk.Entry(media_row, textvariable=self.media_var).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=6)
-        tk.Label(media_row, text="缓存").pack(side=tk.LEFT, padx=(8, 2))
-        tk.Entry(media_row, textvariable=self.metadata_cache_var, width=22).pack(side=tk.LEFT)
 
         self.video_frame = tk.Frame(self.root, background="black")
         self.video_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=8)
@@ -192,6 +190,7 @@ class VlcPlayerWindow:
             media_path,
             self.config,
             self.messages,
+            self.virtual_mp4_server,
         )
 
     def play(self) -> None:
@@ -240,6 +239,7 @@ class VlcPlayerWindow:
         self.stop_event.set()
         if self.controller is not None:
             self.controller.stop()
+        self.virtual_mp4_server.stop()
         self.root.destroy()
 
     def _poll_messages(self) -> None:
@@ -279,7 +279,7 @@ class VlcPlayerWindow:
         if self.controller is None:
             return
         self.controller.open_media(media_path, vlc_media_path=vlc_media_path)
-        suffix = " via spherical cache" if vlc_media_path != media_path else ""
+        suffix = " via virtual 360 metadata" if vlc_media_path != media_path else ""
         self.status_var.set(f"opened {Path(media_path).name}{suffix}")
 
     def _config_from_fields(self, *, last_media: str | None = None) -> VlcPlayerConfig:
@@ -291,8 +291,7 @@ class VlcPlayerWindow:
             gain_pitch=float(self.gain_pitch_var.get()),
             deadzone_degrees=float(self.deadzone_var.get()),
             field_of_view=float(self.fov_var.get()),
-            inject_spherical_metadata=bool(self.inject_metadata_var.get()),
-            metadata_cache_dir=self.metadata_cache_var.get().strip(),
+            serve_spherical_metadata=bool(self.serve_metadata_var.get()),
             auto_connect_ble=False,
             auto_play=False,
         )
@@ -340,10 +339,11 @@ def _start_media_prepare_thread(
     media_path: str,
     config: VlcPlayerConfig,
     messages: Queue[PlayerMessage],
+    virtual_mp4_server: VirtualMp4Server,
 ) -> Thread:
     def target() -> None:
         try:
-            vlc_media_path = _prepare_media_path_for_vlc(media_path, config)
+            vlc_media_path = _prepare_media_path_for_vlc(media_path, config, virtual_mp4_server)
         except Exception as exc:
             messages.put(PlayerMessage("media_prepare_error", text=str(exc)))
             return
@@ -374,10 +374,16 @@ def _wrap_degrees(value: float) -> float:
     return value
 
 
-def _prepare_media_path_for_vlc(media_path: str, config: VlcPlayerConfig) -> str:
-    if not config.inject_spherical_metadata:
+def _prepare_media_path_for_vlc(
+    media_path: str,
+    config: VlcPlayerConfig,
+    virtual_mp4_server: VirtualMp4Server | None = None,
+) -> str:
+    if not config.serve_spherical_metadata:
         return media_path
-    return str(ensure_equirectangular_metadata_copy(media_path, config.metadata_cache_dir))
+    if virtual_mp4_server is None:
+        virtual_mp4_server = VirtualMp4Server()
+    return virtual_mp4_server.add_media(media_path)
 
 
 def main(argv: list[str] | None = None) -> int:

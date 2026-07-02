@@ -4,7 +4,7 @@ import struct
 
 from pc_receiver.mp4_spherical_metadata import (
     SPHERICAL_UUID_ID,
-    ensure_equirectangular_metadata_copy,
+    inject_equirectangular_metadata,
     spherical_uuid_box,
 )
 
@@ -35,11 +35,11 @@ def test_spherical_uuid_box_declares_equirectangular_projection() -> None:
     assert b"<GSpherical:ProjectionType>equirectangular</GSpherical:ProjectionType>" in payload
 
 
-def test_ensure_copy_injects_spherical_metadata_and_updates_stco_when_moov_precedes_mdat(
+def test_inject_file_writes_spherical_metadata_and_updates_stco_when_moov_precedes_mdat(
     tmp_path,
 ) -> None:
-    cache_dir = tmp_path / "cache"
     source = tmp_path / "sample.mp4"
+    output = tmp_path / "output.mp4"
     video_trak = _box(
         b"trak",
         _box(b"mdia", _hdlr(b"vide") + _box(b"minf", _box(b"stbl", _stco(200)))),
@@ -51,31 +51,17 @@ def test_ensure_copy_injects_spherical_metadata_and_updates_stco_when_moov_prece
         + _box(b"mdat", b"\x00" * 32)
     )
 
-    output = ensure_equirectangular_metadata_copy(source, cache_dir)
+    inject_equirectangular_metadata(source, output)
     payload = output.read_bytes()
 
-    assert output.parent == cache_dir
     assert SPHERICAL_UUID_ID in payload
     assert payload.count(SPHERICAL_UUID_ID) == 1
     assert _read_stco_offset(payload) == 200 + len(spherical_uuid_box())
 
 
-def test_ensure_copy_reuses_existing_cache_file(tmp_path) -> None:
+def test_inject_file_ignores_short_top_level_trailing_padding(tmp_path) -> None:
     source = tmp_path / "sample.mp4"
-    source.write_bytes(_box(b"ftyp", b"isom") + _box(b"moov", b"") + _box(b"mdat", b""))
-    cache_dir = tmp_path / "cache"
-
-    first = ensure_equirectangular_metadata_copy(source, cache_dir)
-    first.write_bytes(b"cached")
-
-    second = ensure_equirectangular_metadata_copy(source, cache_dir)
-
-    assert second == first
-    assert second.read_bytes() == b"cached"
-
-
-def test_ensure_copy_ignores_short_top_level_trailing_padding(tmp_path) -> None:
-    source = tmp_path / "sample.mp4"
+    output = tmp_path / "output.mp4"
     video_trak = _box(b"trak", _box(b"mdia", _hdlr(b"vide")))
     source.write_bytes(
         _box(b"ftyp", b"isom")
@@ -84,7 +70,7 @@ def test_ensure_copy_ignores_short_top_level_trailing_padding(tmp_path) -> None:
         + (b"\x0b" * 11)
     )
 
-    output = ensure_equirectangular_metadata_copy(source, tmp_path / "cache")
+    inject_equirectangular_metadata(source, output)
     payload = output.read_bytes()
 
     assert SPHERICAL_UUID_ID in payload
