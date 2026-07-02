@@ -22,6 +22,8 @@ class VlcPlayerConfig:
     field_of_view: float = 80.0
     max_yaw_degrees: float = 90.0
     max_pitch_degrees: float = 45.0
+    front_yaw_degrees: float = 180.0
+    front_pitch_degrees: float = 0.0
     smoothing_alpha: float = 0.25
     max_step_degrees: float = 6.0
     yaw_source_axis: str = "yaw"

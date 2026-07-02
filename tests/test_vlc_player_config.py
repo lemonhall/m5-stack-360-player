@@ -23,6 +23,8 @@ def test_load_config_missing_file_returns_defaults(tmp_path) -> None:
     assert config.deadzone_degrees == 1.0
     assert config.max_yaw_degrees == 90.0
     assert config.max_pitch_degrees == 45.0
+    assert config.front_yaw_degrees == 180.0
+    assert config.front_pitch_degrees == 0.0
     assert config.smoothing_alpha == 0.25
     assert config.max_step_degrees == 6.0
     assert config.yaw_source_axis == "yaw"
@@ -57,6 +59,8 @@ def test_save_config_creates_parent_directory_and_round_trips(tmp_path) -> None:
         field_of_view=75.0,
         max_yaw_degrees=80.0,
         max_pitch_degrees=40.0,
+        front_yaw_degrees=90.0,
+        front_pitch_degrees=-5.0,
         smoothing_alpha=0.5,
         max_step_degrees=4.0,
         yaw_source_axis="roll",

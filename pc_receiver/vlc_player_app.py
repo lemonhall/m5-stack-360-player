@@ -79,6 +79,8 @@ class VlcPlayerController:
                 gain_pitch=self.config.gain_pitch,
                 deadzone_degrees=self.config.deadzone_degrees,
                 field_of_view=self.config.field_of_view,
+                front_yaw_degrees=self.config.front_yaw_degrees,
+                front_pitch_degrees=self.config.front_pitch_degrees,
             ),
         )
         self.backend.update_viewpoint(viewpoint)
@@ -116,6 +118,8 @@ class VlcPlayerWindow:
         self.fov_var = tk.StringVar(value=str(self.config.field_of_view))
         self.max_yaw_var = tk.StringVar(value=str(self.config.max_yaw_degrees))
         self.max_pitch_var = tk.StringVar(value=str(self.config.max_pitch_degrees))
+        self.front_yaw_var = tk.StringVar(value=str(self.config.front_yaw_degrees))
+        self.front_pitch_var = tk.StringVar(value=str(self.config.front_pitch_degrees))
         self.smoothing_var = tk.StringVar(value=str(self.config.smoothing_alpha))
         self.max_step_var = tk.StringVar(value=str(self.config.max_step_degrees))
         self.yaw_source_axis_var = tk.StringVar(value=self.config.yaw_source_axis)
@@ -160,6 +164,8 @@ class VlcPlayerWindow:
 
         mapping = tk.Frame(self.root)
         mapping.pack(side=tk.TOP, fill=tk.X, padx=8, pady=4)
+        self._entry(mapping, "FrontYaw", self.front_yaw_var, 5)
+        self._entry(mapping, "FrontPitch", self.front_pitch_var, 5)
         self._axis_picker(mapping, "YawAxis", self.yaw_source_axis_var)
         self._entry(mapping, "YawSign", self.yaw_source_sign_var, 4)
         self._axis_picker(mapping, "PitchAxis", self.pitch_source_axis_var)
@@ -339,6 +345,8 @@ class VlcPlayerWindow:
             field_of_view=float(self.fov_var.get()),
             max_yaw_degrees=float(self.max_yaw_var.get()),
             max_pitch_degrees=float(self.max_pitch_var.get()),
+            front_yaw_degrees=float(self.front_yaw_var.get()),
+            front_pitch_degrees=float(self.front_pitch_var.get()),
             smoothing_alpha=float(self.smoothing_var.get()),
             max_step_degrees=float(self.max_step_var.get()),
             yaw_source_axis=_axis_from_field(self.yaw_source_axis_var.get()),

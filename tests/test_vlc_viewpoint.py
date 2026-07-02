@@ -24,6 +24,23 @@ def test_map_ypr_to_viewpoint_applies_deadzone() -> None:
     assert viewpoint.roll == 0.0
 
 
+def test_map_ypr_to_viewpoint_applies_video_front_offset_after_head_motion() -> None:
+    settings = ViewpointSettings(
+        gain_yaw=1.0,
+        gain_pitch=1.0,
+        front_yaw_degrees=180.0,
+        front_pitch_degrees=5.0,
+    )
+
+    centered = map_ypr_to_viewpoint((0.0, 0.0, 0.0), settings)
+    left_and_up = map_ypr_to_viewpoint((20.0, 10.0, 0.0), settings)
+
+    assert centered.yaw == 180.0
+    assert centered.pitch == 5.0
+    assert left_and_up.yaw == 160.0
+    assert left_and_up.pitch == -5.0
+
+
 def test_map_ypr_to_viewpoint_clamps_pitch_and_fov() -> None:
     settings = ViewpointSettings(gain_pitch=2.0, field_of_view=200.0)
 
